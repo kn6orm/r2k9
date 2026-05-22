@@ -4,9 +4,11 @@
 
 R2K9 is an autonomous robot for assistive living. It appears to be a robot toy, wandering about a patient's living space seemingly at random. However, it is intended to keep track of people within an assisted living space. R2K9 is aware which people are patients and which people are care givers. R2K9 will discreetly track the status of patients making sure they are moving naturally and not exhibiting signs of distress.
 
+![R2K9 UI](./assets/r2k9-ui.jpg)
+
 R2K9 will be able to interact with its environment with wireless technology such as Bluetooth. For example, R2K9 can converse with a patient via a Bluetooth speaker and lock and unlock bluetooth enabled doors (for example to stop a dementia patient from wandering off).
 
-![R2K9 UI](https://i.imgur.com/G1hf7Ea.jpeg)
+![R2K9 UI](./assets/r2k9-concept.jpg)
 
 R2K9 comes with a companion app, used by a care giver to monitor a patient. If a patients stops moving when they are in an unnatural position (such as fallen down on the floor) or the patient calls for help, the care giver can use the app to teleconference with the patient to address their state. The caregiver can use the app to have R2K9 unlock a door to allow access to maintenance or emergency personnel. R2K9 will not automatically summon emergency personnel, but instead give the care giver enough information to do that.
 
