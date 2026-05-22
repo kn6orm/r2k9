@@ -12,9 +12,9 @@ R2K9 will be able to interact with its environment with wireless technology such
 
 R2K9 comes with a companion app, used by a care giver to monitor a patient. If a patients stops moving when they are in an unnatural position (such as fallen down on the floor) or the patient calls for help, the care giver can use the app to teleconference with the patient to address their state. The caregiver can use the app to have R2K9 unlock a door to allow access to maintenance or emergency personnel. R2K9 will not automatically summon emergency personnel, but instead give the care giver enough information to do that.
 
-Privacy is an important for R2K9. As the robot is autonomous, there is no interaction with a server and informations is kept strictly within a virtual private network (VPN). Modern robots are a distributed network of computing devices, rather than a single physical device. Indeed ROS2 messages are transmitted across the network unencrypted as the assumption is that all machines within the VPN are trusted.
+Privacy is important for R2K9. As the robot is autonomous, there is no interaction with a server and informations is kept strictly within a virtual private network (VPN). Modern robots are a distributed network of computing devices, rather than a single physical device. Indeed ROS2 messages are transmitted across the network unencrypted as the assumption is that all machines within the VPN are trusted.
 
-Rather than equip and environment with multiple cameras and microphones, R2K9 effectively moves a single camera and microphone around the living space, like a tiny security guard.
+Rather than equip an environment with multiple cameras and microphones, R2K9 effectively moves a single camera and microphone around the living space, like a tiny security guard.
 
 ## Installation
 
