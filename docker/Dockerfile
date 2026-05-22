@@ -34,7 +34,8 @@ RUN apt-get update && apt-get install -y \
 # Automatically source ROS 2 environment for interactive bash sessions
 RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
 
-RUN git clone https://github.com/kn6orm/r2k9.git
+# TODO switch to main branch for production
+RUN git clone -b dev https://github.com/kn6orm/r2k9.git
 
 # Copy the entrypoint script into the container
 COPY ./entrypoint.sh /entrypoint.sh
