@@ -2,7 +2,7 @@
 
 ## Introduction
 
-R2K9 is an autonomous robot for assistive living. It appears to be a robot toy, wandering about a patient's living space seemingly at random. However, it is intended to keep track of people within an assisted living space. R2K9 is aware which people are patients and which people are care givers. R2K9 will discreetly track the status of patients making sure they are moving naturally and not exhibiting signs of distress.
+R2K9 is an open source autonomous robot for assistive living. It appears to be a robot toy, wandering about a patient's living space seemingly at random. However, it is intended to keep track of people within an assisted living space. R2K9 is aware which people are patients and which people are care givers. R2K9 will discreetly track the status of patients making sure they are moving naturally and not exhibiting signs of distress.
 
 ![R2K9 UI](./assets/r2k9-ui.jpg)
 
@@ -17,6 +17,8 @@ Privacy is an important for R2K9. As the robot is autonomous, there is no intera
 Rather than equip and environment with multiple cameras and microphones, R2K9 effectively moves a single camera and microphone around the living space, like a tiny security guard.
 
 ## Installation
+
+R2K9 requires [ROS2 Jazzy](https://docs.ros.org/en/jazzy/index.html) and [flutter](https://flutter.dev/)
 
 ### Control app
 
