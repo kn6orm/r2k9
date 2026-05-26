@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y \
 RUN echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
 
 # TODO switch to main branch for production
-RUN git clone -b dev https://github.com/kn6orm/r2k9.git
+RUN mkdir -p ros_ws/src && git clone -b dev https://github.com/kn6orm/r2k9.git ros_ws/src
 
 # Copy the entrypoint script into the container
 COPY ./entrypoint.sh /entrypoint.sh
