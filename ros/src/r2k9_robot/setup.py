@@ -16,7 +16,7 @@ setup(
     maintainer='Developer',
     maintainer_email='your_email@example.com',
     description='ROS 2 control and logging node for Mistibot r2k9',
-    license='Apache-2.0',
+    license='GPL-3.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
@@ -24,4 +24,3 @@ setup(
         ],
     },
 )
-
