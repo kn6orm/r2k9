@@ -2,50 +2,88 @@ import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
 
-void main() => runApp(const MaterialApp(home: MistibotControlScreen()));
-
-class MistibotControlScreen extends StatefulWidget {
-  const MistibotControlScreen({Key? key}) : super(key: key);
-
-  @override
-  _MistibotControlScreenState createState() => _MistibotControlScreenState();
+void main() {
+  runApp(const R2K9App());
 }
 
-class _MistibotControlScreenState extends State<MistibotControlScreen> {
-  // Use your robot's static WireGuard VPN IP address
-  final String _robotVpnIp = "ws://10.8.0.2:9090"; 
-  WebSocketChannel? _channel;
-  bool _isConnected = false;
+class R2K9App extends StatelessWidget {
+  const R2K9App({super.key});
 
   @override
-  void initState() {
-    super.initState();
-    _connectToRobot();
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'R2K9 Teleop Dashboard',
+      theme: ThemeData.dark(),
+      home: const TeleopDashboard(),
+    );
+  }
+}
+
+class TeleopDashboard extends StatefulWidget {
+  const TeleopDashboard({super.key});
+
+  @override
+  State<TeleopDashboard> createState() => _TeleopDashboardState();
+}
+
+class _TeleopDashboardState extends State<TeleopDashboard> {
+  // 1. Text editing controller initialized to 'localhost' by default
+  final TextEditingController _hostnameController = TextEditingController(text: 'localhost');
+  
+  WebSocketChannel? _channel;
+  bool _isConnected = false;
+  String _connectionStatus = "Disconnected";
+
+  @override
+  void dispose() {
+    _hostnameController.dispose();
+    _closeConnection();
+    super.dispose();
   }
 
-  void _connectToRobot() {
-    try {
-      _channel = WebSocketChannel.connect(Uri.parse(_robotVpnIp));
-      setState(() {
-        _isConnected = true;
-      });
-      print("Connected to Mistibot via VPN at $_robotVpnIp");
-    } catch (e) {
-      setState(() {
-        _isConnected = false;
-      });
-      print("Connection failed: $e");
+  // 2. Dynamic connection routine using the editable text field value
+  void _toggleConnection() {
+    if (_isConnected) {
+      _closeConnection();
+    } else {
+      final host = _hostnameController.text.trim();
+      if (host.isEmpty) return;
+
+      final targetUri = 'ws://$host:9090'; // Automatically formats the editable target address
+
+      try {
+        setState(() {
+          _connectionStatus = "Connecting to $targetUri...";
+        });
+
+        _channel = WebSocketChannel.connect(Uri.parse(targetUri));
+        
+        setState(() {
+          _isConnected = true;
+          _connectionStatus = "Connected to $host";
+        });
+      } catch (e) {
+        setState(() {
+          _connectionStatus = "Connection Failed: ${e.toString()}";
+          _isConnected = false;
+        });
+      }
     }
   }
 
-  /// Formats and transmits a Twist message to the rosbridge server
-  void _publishTwist(double linearX, double angularZ) {
-    if (_channel == null || !_isConnected) {
-      print("Cannot send command: Disconnected from VPN");
-      return;
-    }
+  void _closeConnection() {
+    _channel?.sink.close();
+    setState(() {
+      _isConnected = false;
+      _connectionStatus = "Disconnected";
+    });
+  }
 
-    final rosPublishMessage = {
+  // 3. Serializes and transmits continuous movement payloads over the active channel
+  void _sendTwistCommand(double linearX, double angularZ) {
+    if (!_isConnected || _channel == null) return;
+
+    final Map<String, dynamic> rosbridgeMessage = {
       "op": "publish",
       "topic": "/cmd_vel",
       "msg": {
@@ -54,93 +92,104 @@ class _MistibotControlScreenState extends State<MistibotControlScreen> {
       }
     };
 
-    _channel!.sink.add(jsonEncode(rosPublishMessage));
-    print("Sent to ROS 2: Linear: $linearX, Angular: $angularZ");
-  }
-
-  @override
-  void dispose() {
-    _channel?.sink.close();
-    super.dispose();
+    _channel!.sink.add(jsonEncode(rosbridgeMessage));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[900],
-      appBar: AppBar(
-        title: const Text("Mistibot Command Center"),
-        backgroundColor: Colors.blueGrey[900],
-        actions: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Chip(
-              label: Text(_isConnected ? "VPN Connected" : "Disconnected"),
-              backgroundColor: _isConnected ? Colors.green[700] : Colors.red[700],
+      appBar: AppBar(title: const Text('R2K9 UI Interface')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            // --- HOSTNAME CONFIGURATION LAYER ---
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _hostnameController,
+                        enabled: !_isConnected, // Prevent edits while actively connected
+                        decoration: const InputDecoration(
+                          labelText: 'Robot Hostname / VPN IP',
+                          hintText: 'e.g., 10.8.0.2 or localhost',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.dns),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: _toggleConnection,
+                      icon: Icon(_isConnected ? Icons.link_off : Icons.link),
+                      label: Text(_isConnected ? 'Disconnect' : 'Connect'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _isConnected ? Colors.red : Colors.green,
+                        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          )
-        ],
-      ),
-      body: Center(
-        child: Container(
-          width: 250,
-          height: 250,
-          decoration: BoxDecoration(
-            color: Colors.blueGrey[800],
-            shape: BoxShape.circle,
-          ),
-          child: Stack(
-            children: [
-              // Forward Button (Move straight ahead)
-              Align(
-                alignment: Alignment.topCenter,
-                child: IconButton(
-                  iconSize: 64,
-                  icon: const Icon(Icons.arrow_circle_up, color: Colors.white),
-                  onPressed: () => _publishTwist(0.3, 0.0), 
+            const SizedBox(height: 10),
+            
+            // Connection Status Feedback Text
+            Text(
+              _connectionStatus,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: _isConnected ? Colors.green : Colors.orange,
+              ),
+            ),
+            const Divider(height: 30),
+
+            // --- SIMPLIFIED TELEOP SUITE (DPAD TARGET) ---
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Forward Arrow Button
+                    IconButton(
+                      iconSize: 64,
+                      icon: const Icon(Icons.arrow_circle_up, color: Colors.blue),
+                      onPressed: _isConnected ? () => _sendTwistCommand(1.0, 0.0) : null,
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Left Arrow Button
+                        IconButton(
+                          iconSize: 64,
+                          icon: const Icon(Icons.arrow_circle_left, color: Colors.blue),
+                          onPressed: _isConnected ? () => _sendTwistCommand(0.0, 1.0) : null,
+                        ),
+                        const SizedBox(width: 64),
+                        // Right Arrow Button
+                        IconButton(
+                          iconSize: 64,
+                          icon: const Icon(Icons.arrow_circle_right, color: Colors.blue),
+                          onPressed: _isConnected ? () => _sendTwistCommand(0.0, -1.0) : null,
+                        ),
+                      ],
+                    ),
+                    // Backward Arrow Button
+                    IconButton(
+                      iconSize: 64,
+                      icon: const Icon(Icons.arrow_circle_down, color: Colors.blue),
+                      onPressed: _isConnected ? () => _sendTwistCommand(-1.0, 0.0) : null,
+                    ),
+                  ],
                 ),
               ),
-              // Left Button (Rotate counter-clockwise)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  iconSize: 64,
-                  icon: const Icon(Icons.arrow_circle_left_outlined, color: Colors.white),
-                  onPressed: () => _publishTwist(0.0, 0.5),
-                ),
-              ),
-              // Stop Button (Emergency braking)
-              Align(
-                alignment: Alignment.center,
-                child: IconButton(
-                  iconSize: 64,
-                  icon: const Icon(Icons.stop_circle, color: Colors.redAccent),
-                  onPressed: () => _publishTwist(0.0, 0.0),
-                ),
-              ),
-              // Right Button (Rotate clockwise)
-              Align(
-                alignment: Alignment.centerRight,
-                child: IconButton(
-                  iconSize: 64,
-                  icon: const Icon(Icons.arrow_circle_right_outlined, color: Colors.white),
-                  onPressed: () => _publishTwist(0.0, -0.5),
-                ),
-              ),
-              // Backward Button (Reverse)
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: IconButton(
-                  iconSize: 64,
-                  icon: const Icon(Icons.arrow_circle_down, color: Colors.white),
-                  onPressed: () => _publishTwist(-0.3, 0.0),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
-
