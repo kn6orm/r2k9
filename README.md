@@ -8,7 +8,7 @@ R2K9 is an open source autonomous robot for assistive living. It appears to be a
 
 R2K9 will be able to interact with its environment with wireless technology such as Bluetooth. For example, R2K9 can converse with a patient via a Bluetooth speaker and lock and unlock bluetooth enabled doors (for example to stop a dementia patient from wandering off).
 
-![R2K9 UI](./assets/r2k9-concept.jpg)
+![R2K9 Concept](./assets/r2k9-concept.jpg)
 
 R2K9 comes with a companion app, used by a care giver to monitor a patient. If a patients stops moving when they are in an unnatural position (such as fallen down on the floor) or the patient calls for help, the care giver can use the app to teleconference with the patient to address their state. The caregiver can use the app to have R2K9 unlock a door to allow access to maintenance or emergency personnel. R2K9 will not automatically summon emergency personnel, but instead give the care giver enough information to do that.
 
@@ -24,27 +24,35 @@ R2K9 requires [ROS2 Jazzy](https://docs.ros.org/en/jazzy/index.html) and [flutte
 
 Build and run the control app
 
+Set environment variable `TARGET` to a flutter target, such as `linux`, or `chrome`.
+
 ```
-TARGET=chrome
 cd r2k9ui
 flutter build $TARGET
 flutter run $TARGET
 ```
 
-### Build and test the r2k9 ROS2 node
+### Build the r2k9_robot ROS2 package and test vision
 
 ```
-docker build -t r2k9_node docker
-docker run -it --rm --net=host r2k9_node cmd
+cd ros
+colcon build --symlink-install
+source install/setup.bash
+ros2 run r2k9_robot robot_vision
 ```
 
-## Operation
-
-Find the URL of the webhooks TODO
+Then view the image stream in a different terminal
 
 ```
-docker run -it --rm --net=host r2k9_node TODO
+cd ros
+source install/setup.bash
+ros2 run rqt_image_view rqt_image_view
 ```
+
+When the image viewer is running, select `/camera/processed_image' in the top left dropdown.
+You should see something likie this
+
+![R2K9 Vision](./assets/r2k9-vision.png)
 
 ## Development
 
