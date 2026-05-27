@@ -1,16 +1,18 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
-<package format3>
+<package format="3">
   <name>r2k9_robot</name>
-  <version>0.0.1</version>
-  <description>ROS 2 control and logging node for Mistibot r2k9</description>
-  <maintainer email="your_email@example.com">Developer</maintainer>
+  <version>0.0.0</version>
+  <description>Mistibot core vision and telemetry tracking package</description>
+  <maintainer email="sca@photon.local">sca</maintainer>
   <license>GPL-3.0</license>
 
   <depend>rclpy</depend>
-  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
 
   <export>
     <build_type>ament_python</build_type>
   </export>
 </package>
+
