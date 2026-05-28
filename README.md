@@ -27,7 +27,7 @@ Build and run the control app
 Set environment variable `TARGET` to a flutter target, such as `linux`, or `chrome`.
 
 ```
-cd r2k9ui
+cd ui
 flutter build $TARGET
 flutter run $TARGET
 ```
@@ -69,6 +69,11 @@ and in another termainl run
 ```
 ros2 run r2k9_robot dpad_logger
 ```
+To actually move the robot run the command
+```
+ros2 run r2k9_robot kobuki_controller
+```
+
 
 ## Development
 
