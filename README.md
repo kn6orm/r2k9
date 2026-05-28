@@ -32,20 +32,25 @@ flutter build $TARGET
 flutter run $TARGET
 ```
 
-### Build the r2k9_robot ROS2 package and test vision
+### Build the r2k9_robot ROS2 package
 
 ```
 cd ros
 colcon build --symlink-install
 source install/setup.bash
+```
+
+Note that the --symlink-install builds the app with the python files as symlinks.
+This means that, if you do not introduce any new nodes or dependencies, you can edit
+and rerun the R2K9 nodes without building again via colcon. 
+
+### Run the robot vision node
+```
 ros2 run r2k9_robot robot_vision
 ```
 
 Then view the image stream in a different terminal
-
 ```
-cd ros
-source install/setup.bash
 ros2 run rqt_image_view rqt_image_view
 ```
 
@@ -53,6 +58,17 @@ When the image viewer is running, select `/camera/processed_image' in the top le
 You should see something likie this
 
 ![R2K9 Vision](./assets/r2k9-vision.png)
+
+### Locomotion
+
+When running the control app, start the websocket-ROS2 bridge with
+```
+ros2 launch rosbridge_server rosbridge_websocket_launch.xml
+```
+and in another termainl run
+```
+ros2 run r2k9_robot dpad_logger
+```
 
 ## Development
 
