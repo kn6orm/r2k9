@@ -28,8 +28,10 @@ class TeleopDashboard extends StatefulWidget {
 
 class _TeleopDashboardState extends State<TeleopDashboard> {
   // 1. Text editing controller initialized to 'localhost' by default
-  final TextEditingController _hostnameController = TextEditingController(text: 'localhost');
-  
+  final TextEditingController _hostnameController = TextEditingController(
+    text: 'localhost',
+  );
+
   WebSocketChannel? _channel;
   bool _isConnected = false;
   String _connectionStatus = "Disconnected";
@@ -49,7 +51,8 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
       final host = _hostnameController.text.trim();
       if (host.isEmpty) return;
 
-      final targetUri = 'ws://$host:9090'; // Automatically formats the editable target address
+      final targetUri =
+          'ws://$host:9090'; // Automatically formats the editable target address
 
       try {
         setState(() {
@@ -57,11 +60,14 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
         });
 
         _channel = WebSocketChannel.connect(Uri.parse(targetUri));
-        
+
         setState(() {
           _isConnected = true;
           _connectionStatus = "Connected to $host";
         });
+
+        // Send stop command on connection
+        _sendStopCommand();
       } catch (e) {
         setState(() {
           _connectionStatus = "Connection Failed: ${e.toString()}";
@@ -72,6 +78,9 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   }
 
   void _closeConnection() {
+    // Send stop command before disconnecting
+    _sendStopCommand();
+
     _channel?.sink.close();
     setState(() {
       _isConnected = false;
@@ -88,11 +97,15 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
       "topic": "/cmd_vel",
       "msg": {
         "linear": {"x": linearX, "y": 0.0, "z": 0.0},
-        "angular": {"x": 0.0, "y": 0.0, "z": angularZ}
-      }
+        "angular": {"x": 0.0, "y": 0.0, "z": angularZ},
+      },
     };
 
     _channel!.sink.add(jsonEncode(rosbridgeMessage));
+  }
+
+  void _sendStopCommand() {
+    _sendTwistCommand(0.0, 0.0);
   }
 
   @override
@@ -112,7 +125,8 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                     Expanded(
                       child: TextField(
                         controller: _hostnameController,
-                        enabled: !_isConnected, // Prevent edits while actively connected
+                        enabled:
+                            !_isConnected, // Prevent edits while actively connected
                         decoration: const InputDecoration(
                           labelText: 'Robot Hostname / VPN IP',
                           hintText: 'e.g., 10.8.0.2 or localhost',
@@ -127,8 +141,13 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                       icon: Icon(_isConnected ? Icons.link_off : Icons.link),
                       label: Text(_isConnected ? 'Disconnect' : 'Connect'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _isConnected ? Colors.red : Colors.green,
-                        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                        backgroundColor: _isConnected
+                            ? Colors.red
+                            : Colors.green,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 20,
+                          horizontal: 16,
+                        ),
                       ),
                     ),
                   ],
@@ -136,7 +155,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
               ),
             ),
             const SizedBox(height: 10),
-            
+
             // Connection Status Feedback Text
             Text(
               _connectionStatus,
@@ -144,6 +163,12 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                 fontWeight: FontWeight.bold,
                 color: _isConnected ? Colors.green : Colors.orange,
               ),
+            ),
+            const SizedBox(height: 16),
+            Image.asset(
+              'assets/r2k9-mockup.png',
+              height: 180,
+              fit: BoxFit.contain,
             ),
             const Divider(height: 30),
 
@@ -156,8 +181,13 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                     // Forward Arrow Button
                     IconButton(
                       iconSize: 64,
-                      icon: const Icon(Icons.arrow_circle_up, color: Colors.blue),
-                      onPressed: _isConnected ? () => _sendTwistCommand(1.0, 0.0) : null,
+                      icon: const Icon(
+                        Icons.arrow_circle_up,
+                        color: Colors.blue,
+                      ),
+                      onPressed: _isConnected
+                          ? () => _sendTwistCommand(1.0, 0.0)
+                          : null,
                     ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -165,23 +195,61 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                         // Left Arrow Button
                         IconButton(
                           iconSize: 64,
-                          icon: const Icon(Icons.arrow_circle_left, color: Colors.blue),
-                          onPressed: _isConnected ? () => _sendTwistCommand(0.0, 1.0) : null,
+                          icon: const Icon(
+                            Icons.arrow_circle_left,
+                            color: Colors.blue,
+                          ),
+                          onPressed: _isConnected
+                              ? () => _sendTwistCommand(0.0, 1.0)
+                              : null,
                         ),
-                        const SizedBox(width: 64),
+                        const SizedBox(width: 16),
+                        // Central Stop Button
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              iconSize: 64,
+                              icon: const Icon(
+                                Icons.stop_circle,
+                                color: Colors.red,
+                              ),
+                              onPressed: _isConnected ? _sendStopCommand : null,
+                              tooltip: 'Stop (zero velocity)',
+                            ),
+                            const Text(
+                              'STOP',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 16),
                         // Right Arrow Button
                         IconButton(
                           iconSize: 64,
-                          icon: const Icon(Icons.arrow_circle_right, color: Colors.blue),
-                          onPressed: _isConnected ? () => _sendTwistCommand(0.0, -1.0) : null,
+                          icon: const Icon(
+                            Icons.arrow_circle_right,
+                            color: Colors.blue,
+                          ),
+                          onPressed: _isConnected
+                              ? () => _sendTwistCommand(0.0, -1.0)
+                              : null,
                         ),
                       ],
                     ),
                     // Backward Arrow Button
                     IconButton(
                       iconSize: 64,
-                      icon: const Icon(Icons.arrow_circle_down, color: Colors.blue),
-                      onPressed: _isConnected ? () => _sendTwistCommand(-1.0, 0.0) : null,
+                      icon: const Icon(
+                        Icons.arrow_circle_down,
+                        color: Colors.blue,
+                      ),
+                      onPressed: _isConnected
+                          ? () => _sendTwistCommand(-1.0, 0.0)
+                          : null,
                     ),
                   ],
                 ),

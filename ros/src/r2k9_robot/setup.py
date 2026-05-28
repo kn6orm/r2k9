@@ -24,6 +24,7 @@ setup(
             'dpad_logger = r2k9_robot.dpad_logger_node:main',
             'robot_vision = r2k9_robot.robot_vision_node:main',
             'immobility_monitor = r2k9_robot.object_immobility_monitor:main',
+            'kobuki_controller = r2k9_robot.kobuki_controller_node:main',
         ],
     },
 )
