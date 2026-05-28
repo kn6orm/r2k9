@@ -164,6 +164,12 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                 color: _isConnected ? Colors.green : Colors.orange,
               ),
             ),
+            const SizedBox(height: 16),
+            Image.asset(
+              'assets/r2k9-mockup.png',
+              height: 180,
+              fit: BoxFit.contain,
+            ),
             const Divider(height: 30),
 
             // --- SIMPLIFIED TELEOP SUITE (DPAD TARGET) ---
