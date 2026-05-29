@@ -81,6 +81,11 @@ The password is `r2k9`
 
 ## TODO
 
-Look into using Zenoh instead of webhooks.
+* Autonomous locomotion - vSLAM
+* Stream video from R2K9
+* Audio conversation
+* Incident detection - immobility, distress, accident
+* Look into using Zenoh instead of webhooks.
+
 
 
