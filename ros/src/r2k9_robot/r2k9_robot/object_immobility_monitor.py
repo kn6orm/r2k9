@@ -18,6 +18,9 @@ class ObjectImmobilityMonitor(Node):
             10
         )
 
+        # Publish immobility alerts for UI consumption
+        self.alert_pub = self.create_publisher(String, '/immobility_alert', 10)
+
         # Configuration thresholds
         self.STATIONARY_TOLERANCE_PIXELS = 250.0  # Drift tolerance window 
         self.IMMOBILE_DURATION_THRESHOLD = TIMEOUT   # Required duration in seconds
@@ -75,13 +78,18 @@ class ObjectImmobilityMonitor(Node):
             if distance <= self.STATIONARY_TOLERANCE_PIXELS:
                 # Target is within the stationary drift tolerance envelope
                 elapsed_duration = current_time - target_data["stationary_since"]
-               
-                
                 self.get_logger().warn(f'duration is  {elapsed_duration}')
                 if elapsed_duration >= self.IMMOBILE_DURATION_THRESHOLD and not target_data["alert_triggered"]:
-                    self.get_logger().warn(
-                        f"🚨 ALERT: {class_name.upper()} has stopped moving for {int(elapsed_duration)} seconds!"
-                    )
+                    alert_message = f"🚨 ALERT: {class_name.upper()} has stopped moving for {int(elapsed_duration)} seconds!"
+                    self.get_logger().warn(alert_message)
+                    alert_payload = String()
+                    alert_payload.data = json.dumps({
+                        "alert_type": "immobility",
+                        "object_class": class_name,
+                        "duration_seconds": int(elapsed_duration),
+                        "message": alert_message,
+                    })
+                    self.alert_pub.publish(alert_payload)
                     target_data["alert_triggered"] = True
             else:
                 # Target broke tolerance bound; reset its temporal tracker baseline

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
@@ -33,8 +35,10 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   );
 
   WebSocketChannel? _channel;
+  StreamSubscription? _rosSubscription;
   bool _isConnected = false;
   String _connectionStatus = "Disconnected";
+  String? _immobilityAlert;
 
   @override
   void dispose() {
@@ -68,6 +72,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
         // Send stop command on connection
         _sendStopCommand();
+        _subscribeToImmobilityAlerts();
       } catch (e) {
         setState(() {
           _connectionStatus = "Connection Failed: ${e.toString()}";
@@ -81,10 +86,16 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     // Send stop command before disconnecting
     _sendStopCommand();
 
+    if (_channel != null) {
+      final unsubscribe = {"op": "unsubscribe", "topic": "/immobility_alert"};
+      _channel!.sink.add(jsonEncode(unsubscribe));
+    }
+    _rosSubscription?.cancel();
     _channel?.sink.close();
     setState(() {
       _isConnected = false;
       _connectionStatus = "Disconnected";
+      _immobilityAlert = null;
     });
   }
 
@@ -106,6 +117,52 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
   void _sendStopCommand() {
     _sendTwistCommand(0.0, 0.0);
+  }
+
+  void _dismissImmobilityAlert() {
+    setState(() {
+      _immobilityAlert = null;
+    });
+  }
+
+  void _subscribeToImmobilityAlerts() {
+    if (!_isConnected || _channel == null) return;
+
+    final subscribePayload = {"op": "subscribe", "topic": "/immobility_alert"};
+    _channel!.sink.add(jsonEncode(subscribePayload));
+
+    _rosSubscription = _channel!.stream.listen(
+      (dynamic message) {
+        try {
+          final decoded = jsonDecode(message as String) as Map<String, dynamic>;
+          if (decoded["op"] == "publish" &&
+              decoded["topic"] == "/immobility_alert") {
+            final msg = decoded["msg"] as Map<String, dynamic>;
+            final String alertText =
+                msg["message"] as String? ?? msg.toString();
+            setState(() {
+              _immobilityAlert = alertText;
+            });
+          }
+        } catch (_) {
+          // Ignore malformed ROSBridge messages
+        }
+      },
+      onError: (_) {
+        setState(() {
+          _immobilityAlert = null;
+        });
+      },
+      onDone: () {
+        if (mounted) {
+          setState(() {
+            _immobilityAlert = null;
+            _isConnected = false;
+            _connectionStatus = "Disconnected";
+          });
+        }
+      },
+    );
   }
 
   @override
@@ -164,6 +221,36 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                 color: _isConnected ? Colors.green : Colors.orange,
               ),
             ),
+            if (_immobilityAlert != null) ...[
+              const SizedBox(height: 10),
+              Card(
+                color: Colors.red.shade900,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.priority_high, color: Colors.white),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _immobilityAlert!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        tooltip: 'Dismiss alert',
+                        onPressed: _dismissImmobilityAlert,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             Image.asset(
               'assets/r2k9-mockup.png',
