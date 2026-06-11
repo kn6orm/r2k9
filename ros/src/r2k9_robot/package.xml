@@ -3,13 +3,17 @@
 <package format="3">
   <name>r2k9_robot</name>
   <version>0.0.0</version>
-  <description>Mistibot core vision and telemetry tracking package</description>
-  <maintainer email="sca@photon.local">sca</maintainer>
+  <description>R2K9 core vision and telemetry tracking package</description>
+  <maintainer email="kn6orm@gmail.com">sca</maintainer>
   <license>GPL-3.0</license>
 
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>launch</depend>
+  <depend>launch_ros</depend>
 
   <export>
     <build_type>ament_python</build_type>
