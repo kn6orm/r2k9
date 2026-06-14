@@ -40,3 +40,7 @@ sudo apt-get install ros-jazzy-teleop-twist-keyboard
 
 ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args --remap cmd_vel:=commands/velocity
 
+pip install ultralytics --break-system-packages
+
+pip install --user "numpy<2.0"  --break-system-packages
+
