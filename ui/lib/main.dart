@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'dart:convert';
+
+import 'zenoh_camera_interface.dart';
 
 void main() {
   runApp(const R2K9App());
@@ -36,15 +40,69 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
   WebSocketChannel? _channel;
   StreamSubscription? _rosSubscription;
+  StreamSubscription<Uint8List>? _zenohImageSubscription;
   bool _isConnected = false;
+  bool _isZenohConnected = false;
   String _connectionStatus = "Disconnected";
+  String _zenohStatus = "Zenoh disconnected";
   String? _immobilityAlert;
+  Uint8List? _latestImageBytes;
 
   @override
   void dispose() {
     _hostnameController.dispose();
     _closeConnection();
+    _closeZenoh();
     super.dispose();
+  }
+
+  Future<void> _connectZenoh(String host) async {
+    try {
+      await initZenohCamera(host, 'r2k9/camera/processed_image');
+      _zenohImageSubscription = zenohImageStream.listen(
+        (bytes) {
+          if (mounted) {
+            setState(() {
+              _latestImageBytes = bytes;
+            });
+          }
+        },
+        onError: (_) {
+          if (mounted) {
+            setState(() {
+              _zenohStatus = 'Zenoh image subscription failed';
+            });
+          }
+        },
+      );
+
+      if (mounted) {
+        setState(() {
+          _isZenohConnected = true;
+          _zenohStatus = 'Zenoh connected';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isZenohConnected = false;
+          _zenohStatus = 'Zenoh connection failed: ${e.toString()}';
+        });
+      }
+    }
+  }
+
+  Future<void> _closeZenoh() async {
+    await closeZenohCamera();
+    await _zenohImageSubscription?.cancel();
+    _zenohImageSubscription = null;
+    if (mounted) {
+      setState(() {
+        _isZenohConnected = false;
+        _zenohStatus = 'Zenoh disconnected';
+        _latestImageBytes = null;
+      });
+    }
   }
 
   // 2. Dynamic connection routine using the editable text field value
@@ -73,6 +131,9 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
         // Send stop command on connection
         _sendStopCommand();
         _subscribeToImmobilityAlerts();
+        if (kIsWeb) {
+          _connectZenoh(host);
+        }
       } catch (e) {
         setState(() {
           _connectionStatus = "Connection Failed: ${e.toString()}";
@@ -92,6 +153,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     }
     _rosSubscription?.cancel();
     _channel?.sink.close();
+    _closeZenoh();
     setState(() {
       _isConnected = false;
       _connectionStatus = "Disconnected";
@@ -221,6 +283,43 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                 color: _isConnected ? Colors.green : Colors.orange,
               ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              _zenohStatus,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: _isZenohConnected ? Colors.green : Colors.yellow,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (_latestImageBytes != null) ...[
+              Card(
+                clipBehavior: Clip.hardEdge,
+                child: Image.memory(
+                  _latestImageBytes!,
+                  fit: BoxFit.contain,
+                  width: double.infinity,
+                  height: 240,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ] else ...[
+              Card(
+                color: Colors.grey.shade900,
+                child: SizedBox(
+                  height: 240,
+                  child: Center(
+                    child: Text(
+                      _isZenohConnected
+                          ? 'Waiting for Zenoh camera frames...'
+                          : 'Zenoh camera unavailable on this platform',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             if (_immobilityAlert != null) ...[
               const SizedBox(height: 10),
               Card(

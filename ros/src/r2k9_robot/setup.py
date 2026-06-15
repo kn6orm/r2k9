@@ -14,7 +14,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', glob('launch/*.py')),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'zenoh'],
     zip_safe=True,
     maintainer='sca',
     maintainer_email='sca@photon.local',
@@ -27,6 +27,7 @@ setup(
             'robot_vision = r2k9_robot.robot_vision_node:main',
             'immobility_monitor = r2k9_robot.object_immobility_monitor:main',
             'kobuki_controller = r2k9_robot.kobuki_controller_node:main',
+            'zenoh_bridge = r2k9_robot.zenoh_bridge_node:main',
         ],
     },
 )

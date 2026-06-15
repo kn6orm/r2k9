@@ -75,12 +75,47 @@ ros2 run r2k9_robot kobuki_controller
 ```
 
 
+### Zenoh bridge (optional replacement for rosbridge webhooks)
+
+This project includes a small Zenoh bridge node that republishes camera frames and bounding-box telemetry into Zenoh for efficient binary streaming.
+
+1. Install Zenoh (router) on a machine reachable by both robot and client, for example using the `zenohd` binary from the Zenoh project. Start the router:
+
+```bash
+zenohd --config-path <path-to-config-if-any>
+```
+
+2. Install the Python Zenoh client in the ROS virtualenv / environment and build the package:
+
+```bash
+# from repository root
+cd ros
+python3 -m pip install zenoh
+colcon build --symlink-install
+source install/setup.bash
+```
+
+3. Run the robot vision node and the Zenoh bridge:
+
+```bash
+# run vision (publishes to /camera/processed_image)
+ros2 run r2k9_robot robot_vision
+
+# in another terminal run the bridge which republishes into Zenoh keys
+ros2 run r2k9_robot zenoh_bridge
+```
+
+4. Consume from a client:
+- For web builds: use `zenoh-js` (JavaScript) in the Flutter web wrapper (or a small frontend) to subscribe to `r2k9/camera/processed_image` and receive raw JPEG bytes.
+- For mobile/desktop Flutter: run a small local bridge that subscribes to Zenoh and exposes an MJPEG or WebSocket endpoint, or implement a native plugin using Zenoh C bindings.
+
+Notes:
+- The Zenoh bridge encodes ROS `sensor_msgs/Image` frames as JPEG before publishing, to reduce bandwidth.
+- You can still use `rosbridge_server` for teleop and control messages if desired; Zenoh is recommended for binary image transport and low-latency streaming.
+
 ## Development
 
 The password is `r2k9`
 
-## TODO
-
-Look into using Zenoh instead of webhooks.
 
 
