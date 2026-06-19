@@ -54,6 +54,11 @@ Then view the image stream in a different terminal
 ros2 run rqt_image_view rqt_image_view
 ```
 
+Run the immobility_monitor
+```
+ros2 run r2k9_robot immobility_monitor
+```
+
 When the image viewer is running, select `/camera/processed_image' in the top left dropdown.
 You should see something likie this
 
@@ -74,6 +79,11 @@ To actually move the robot run the command
 ros2 run r2k9_robot kobuki_controller
 ```
 
+## The easy way - launch file
+
+```
+ros2 launch r2k9_robot r2k9.launch.py
+```
 
 ## Development
 
