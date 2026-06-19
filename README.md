@@ -79,6 +79,11 @@ To actually move the robot run the command
 ros2 run r2k9_robot kobuki_controller
 ```
 
+## The easy way - launch file
+
+```
+ros2 launch r2k9_robot r2k9.launch.py
+```
 
 ## Development
 
