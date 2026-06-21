@@ -1,0 +1,4 @@
+object_immobility_monitor:
+  ros__parameters:
+    stationary_tolerance_pixels: 250.0
+    immobile_duration_threshold: 5.0
