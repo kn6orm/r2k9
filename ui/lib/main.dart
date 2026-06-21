@@ -406,6 +406,11 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _isConnected ? _closeConnection : null,
+        child: const Icon(Icons.link_off),
+        tooltip: 'Disconnect from server',
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -587,6 +592,7 @@ class ManageServersPage extends StatefulWidget {
 
 class _ManageServersPageState extends State<ManageServersPage> {
   late List<Map<String, String>> _servers;
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
 
   @override
@@ -597,17 +603,20 @@ class _ManageServersPageState extends State<ManageServersPage> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _addressController.dispose();
     super.dispose();
   }
 
   void _addServer() {
     final address = _addressController.text.trim();
+    final name = _nameController.text.trim();
     if (address.isEmpty) return;
-    final entry = {'name': address, 'address': address};
+    final entry = {'name': name.isEmpty ? address : name, 'address': address};
     setState(() {
       _servers.removeWhere((e) => e['address'] == address);
       _servers.insert(0, entry);
+      _nameController.clear();
       _addressController.clear();
     });
   }
@@ -660,6 +669,14 @@ class _ManageServersPageState extends State<ManageServersPage> {
           padding: const EdgeInsets.all(12.0),
           child: Column(
             children: [
+              TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
               TextField(
                 controller: _addressController,
                 decoration: const InputDecoration(
