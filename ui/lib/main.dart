@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_sound/flutter_sound.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -52,10 +53,19 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   late DateTime _lastLogTime;
   String _videoStats = "No video";
 
+  final FlutterSoundPlayer _audioPlayer = FlutterSoundPlayer();
+  int? _audioConfiguredSampleRate;
+  int? _audioConfiguredChannels;
+  int _audioChunkCounter = 0;
+  int _audioChunksSinceLog = 0;
+  late DateTime _lastAudioLogTime;
+  String _audioStats = "No audio";
+
   @override
   void initState() {
     super.initState();
     _lastLogTime = DateTime.now();
+    _lastAudioLogTime = DateTime.now();
     developer.log(
       _debugLine('01', '[FLUTTER_INIT] TeleopDashboard initialized'),
     );
@@ -66,6 +76,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   void dispose() {
     _hostnameController.dispose();
     _closeConnection();
+    unawaited(_shutdownAudioPlayer());
     super.dispose();
   }
 
@@ -106,6 +117,108 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     await prefs.setStringList('saved_servers', encoded);
   }
 
+  Future<void> _ensureAudioStreamReady({
+    required int sampleRate,
+    required int channels,
+  }) async {
+    if (_audioConfiguredSampleRate == sampleRate &&
+        _audioConfiguredChannels == channels) {
+      return;
+    }
+
+    try {
+      if (_audioConfiguredSampleRate != null || _audioConfiguredChannels != null) {
+        await _audioPlayer.stopPlayer();
+      }
+    } catch (e) {
+      developer.log(_debugLine('31', '[AUDIO_STOP_ERROR] $e'));
+    }
+
+    await _audioPlayer.openPlayer();
+    await _audioPlayer.startPlayerFromStream(
+      codec: Codec.pcmFloat32,
+      numChannels: channels,
+      sampleRate: sampleRate,
+      bufferSize: 8192,
+      interleaved: false,
+    );
+    _audioConfiguredSampleRate = sampleRate;
+    _audioConfiguredChannels = channels;
+    developer.log(
+      _debugLine(
+        '32',
+        '[AUDIO_INIT] Audio player ready sampleRate=$sampleRate channels=$channels',
+      ),
+    );
+  }
+
+  Future<void> _shutdownAudioPlayer() async {
+    try {
+      await _audioPlayer.stopPlayer();
+    } catch (_) {}
+    try {
+      await _audioPlayer.closePlayer();
+    } catch (_) {}
+    _audioConfiguredSampleRate = null;
+    _audioConfiguredChannels = null;
+  }
+
+  Future<void> _handleAudioMessage(Map<String, dynamic> decoded) async {
+    final msg = decoded['msg'] as Map<String, dynamic>?;
+    if (msg == null) return;
+
+    final rawPayload = msg['data'];
+    if (rawPayload is! String || rawPayload.isEmpty) return;
+
+    Map<String, dynamic> audioPacket;
+    try {
+      audioPacket = jsonDecode(rawPayload) as Map<String, dynamic>;
+    } catch (e) {
+      developer.log(_debugLine('33', '[AUDIO_PARSE_ERROR] $e'));
+      return;
+    }
+
+    final base64Data = audioPacket['data'] as String?;
+    if (base64Data == null || base64Data.isEmpty) return;
+
+    final sampleRate = (audioPacket['sample_rate'] as num?)?.toInt() ?? 16000;
+    final channels = (audioPacket['channels'] as num?)?.toInt() ?? 1;
+    final frameBytes = base64Decode(base64Data);
+    if (frameBytes.isEmpty) return;
+
+    await _ensureAudioStreamReady(sampleRate: sampleRate, channels: channels);
+
+    final byteData = ByteData.sublistView(frameBytes);
+    final sampleCount = frameBytes.lengthInBytes ~/ 2;
+    final samples = Float32List(sampleCount);
+    for (var index = 0; index < sampleCount; index++) {
+      final rawSample = byteData.getInt16(index * 2, Endian.little);
+      samples[index] = rawSample / 32768.0;
+    }
+
+    if (samples.isEmpty) return;
+
+    await _audioPlayer.feedF32FromStream([samples]);
+
+    _audioChunkCounter++;
+    _audioChunksSinceLog++;
+    final now = DateTime.now();
+    if (now.difference(_lastAudioLogTime).inSeconds >= 5) {
+      final rate = _audioChunksSinceLog / now.difference(_lastAudioLogTime).inSeconds;
+      if (mounted) {
+        setState(() {
+          _audioStats = '${rate.toStringAsFixed(1)} chunks/s (chunk $_audioChunkCounter)';
+        });
+      }
+      _audioChunksSinceLog = 0;
+      _lastAudioLogTime = now;
+    } else if (mounted && _audioStats == 'No audio') {
+      setState(() {
+        _audioStats = 'Receiving /audio/web';
+      });
+    }
+  }
+
   Future<void> _selectServerByAddress(
     String address, {
     bool connect = true,
@@ -144,7 +257,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
       final raw = result['servers'] as List;
       final servers = raw.map((e) {
         if (e is String) return {'name': e, 'address': e};
-        if (e is Map) return Map<String, String>.from(e as Map);
+        if (e is Map) return Map<String, String>.from(e);
         return {'name': e.toString(), 'address': e.toString()};
       }).toList();
       setState(() {
@@ -214,17 +327,24 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
       _channel!.sink.add(
         jsonEncode({"op": "unsubscribe", "topic": "/camera/web"}),
       );
+      _channel!.sink.add(
+        jsonEncode({"op": "unsubscribe", "topic": "/audio/web"}),
+      );
     }
     _rosBridgeSubscription?.cancel();
     _rosBridgeSubscription = null;
     _channel?.sink.close();
     _channel = null;
+    unawaited(_shutdownAudioPlayer());
     setState(() {
       _isConnected = false;
       _connectionStatus = "Disconnected";
       _rosBridgeStatus = "Disconnected";
       _immobilityAlert = null;
       _videoStats = "No video";
+      _audioStats = "No audio";
+      _audioChunkCounter = 0;
+      _audioChunksSinceLog = 0;
     });
   }
 
@@ -256,7 +376,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     developer.log(
       _debugLine(
         '07',
-        '[STREAM_SUBSCRIBE] Subscribing to /immobility_alert and /camera/web',
+        '[STREAM_SUBSCRIBE] Subscribing to /immobility_alert, /camera/web, and /audio/web',
       ),
     );
 
@@ -270,8 +390,14 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
       "topic": "/camera/web",
       "type": "sensor_msgs/CompressedImage",
     };
+    final subscribeAudio = {
+      "op": "subscribe",
+      "topic": "/audio/web",
+      "type": "std_msgs/String",
+    };
     _channel!.sink.add(jsonEncode(subscribeAlert));
     _channel!.sink.add(jsonEncode(subscribeVideo));
+    _channel!.sink.add(jsonEncode(subscribeAudio));
 
     _rosBridgeSubscription = _channel!.stream.listen(
       (dynamic message) {
@@ -282,7 +408,8 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
           if (op == "publish" &&
               topic != "/camera/web" &&
-              topic != "/immobility_alert")
+              topic != "/immobility_alert" &&
+              topic != "/audio/web")
             return;
 
           if (op == "subscribe") {
@@ -290,6 +417,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
               setState(() {
                 _rosBridgeStatus = "Subscribed to $topic";
                 _videoStats = "Subscribed to $topic";
+                _audioStats = "Subscribed to $topic";
               });
             }
             return;
@@ -305,6 +433,16 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
             return;
           }
 
+          if (op == "publish" && topic == "/audio/web") {
+            if (mounted) {
+              setState(() {
+                _rosBridgeStatus = "Receiving /audio/web";
+              });
+            }
+            unawaited(_handleAudioMessage(decoded));
+            return;
+          }
+
           if (op == "publish" && topic == "/camera/web") {
             if (mounted) {
               setState(() {
@@ -315,7 +453,6 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
             _framesSinceLog++;
 
             final msg = decoded["msg"] as Map<String, dynamic>;
-            final String format = msg["format"] as String? ?? "unknown";
             final dynamic dataField = msg["data"];
 
             Uint8List? frameData;
@@ -355,6 +492,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
       onError: (error) {
         setState(() {
           _videoStats = "ROSBridge stream error";
+          _audioStats = "ROSBridge stream error";
           _rosBridgeStatus = "ROSBridge stream error";
         });
       },
@@ -362,6 +500,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
         if (mounted) {
           setState(() {
             _videoStats = "ROSBridge stream closed";
+            _audioStats = "ROSBridge stream closed";
             _rosBridgeStatus = "ROSBridge stream closed";
           });
         }
@@ -423,6 +562,15 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                 color: _isConnected ? Colors.green : Colors.orange,
               ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              _rosBridgeStatus,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.cyan,
+                fontFamily: 'monospace',
+              ),
+            ),
             if (_latestVideoFrame != null) ...[
               const SizedBox(height: 16),
               Card(
@@ -450,6 +598,58 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                 ),
               ),
             ] else ...[
+              const SizedBox(height: 16),
+              Card(
+                color: Colors.grey.shade900,
+                child: Container(
+                  width: 400,
+                  height: 300,
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.videocam_off,
+                        size: 64,
+                        color: Colors.grey.shade600,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _videoStats,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            Card(
+              color: Colors.grey.shade900,
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.graphic_eq, color: Colors.orangeAccent),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Audio: $_audioStats',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.orangeAccent,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_immobilityAlert != null) ...[
               const SizedBox(height: 16),
               Card(
                 color: Colors.grey.shade900,

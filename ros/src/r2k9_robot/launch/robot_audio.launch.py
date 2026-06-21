@@ -31,12 +31,6 @@ def generate_launch_description():
         audio_chunk_size_arg,
         Node(
             package='r2k9_robot',
-            executable='web_video_server',
-            name='web_video_server_node',
-            output='screen',
-        ),
-        Node(
-            package='r2k9_robot',
             executable='robot_audio',
             name='robot_audio_node',
             output='screen',
