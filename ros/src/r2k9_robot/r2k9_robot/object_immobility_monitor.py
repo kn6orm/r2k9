@@ -4,7 +4,6 @@ from rclpy.node import Node
 import json
 import math
 from std_msgs.msg import String
-TIMEOUT=5
 
 class ObjectImmobilityMonitor(Node):
     def __init__(self):
@@ -21,9 +20,15 @@ class ObjectImmobilityMonitor(Node):
         # Publish immobility alerts for UI consumption
         self.alert_pub = self.create_publisher(String, '/immobility_alert', 10)
 
-        # Configuration thresholds
-        self.STATIONARY_TOLERANCE_PIXELS = 250.0  # Drift tolerance window 
-        self.IMMOBILE_DURATION_THRESHOLD = TIMEOUT   # Required duration in seconds
+        # Configuration thresholds (ROS parameters)
+        self.declare_parameter('stationary_tolerance_pixels', 250.0)
+        self.declare_parameter('immobile_duration_threshold', 5.0)
+        self.STATIONARY_TOLERANCE_PIXELS = float(
+            self.get_parameter('stationary_tolerance_pixels').value
+        )
+        self.IMMOBILE_DURATION_THRESHOLD = float(
+            self.get_parameter('immobile_duration_threshold').value
+        )
 
         # Tracking database layout:
         # { 'class_index': { 'last_centroid': (x, y), 'stationary_since': timestamp } }
