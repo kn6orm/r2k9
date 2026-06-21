@@ -36,6 +36,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     text: 'localhost',
   );
 
+  String _currentServerName = 'localhost';
   WebSocketChannel? _channel;
   StreamSubscription? _rosBridgeSubscription;
   bool _isConnected = false;
@@ -114,6 +115,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     final server = _savedServers[idx];
     setState(() {
       _hostnameController.text = server['address'] ?? '';
+      _currentServerName = server['name'] ?? server['address'] ?? '';
     });
     setState(() {
       _savedServers.removeAt(idx);
@@ -175,9 +177,16 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
         _channel = WebSocketChannel.connect(Uri.parse(targetUri));
 
+        // Try to find matching saved server to get its name
+        final serverIdx = _savedServers.indexWhere((m) => m['address'] == host);
+        final displayName = serverIdx != -1
+            ? (_savedServers[serverIdx]['name'] ?? host)
+            : host;
+
         setState(() {
           _isConnected = true;
-          _connectionStatus = "Connected to $host";
+          _currentServerName = displayName;
+          _connectionStatus = "Connected to $_currentServerName";
           _rosBridgeStatus = "Connected to ROSBridge";
         });
 
