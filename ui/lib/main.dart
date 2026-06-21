@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'dart:convert';
-import 'dart:typed_data';
 
 void main() {
   runApp(const R2K9App());
@@ -31,11 +32,11 @@ class TeleopDashboard extends StatefulWidget {
 }
 
 class _TeleopDashboardState extends State<TeleopDashboard> {
-  // 1. Text editing controller initialized to 'localhost' by default
   final TextEditingController _hostnameController = TextEditingController(
     text: 'localhost',
   );
 
+  String _currentServerName = 'localhost';
   WebSocketChannel? _channel;
   StreamSubscription? _rosBridgeSubscription;
   bool _isConnected = false;
@@ -43,7 +44,8 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   String _rosBridgeStatus = "Disconnected";
   String? _immobilityAlert;
 
-  // [VIDEO INSTRUMENTATION] Frame tracking
+  List<Map<String, String>> _savedServers = [];
+
   Uint8List? _latestVideoFrame;
   int _videoFrameCounter = 0;
   int _framesSinceLog = 0;
@@ -57,6 +59,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     developer.log(
       _debugLine('01', '[FLUTTER_INIT] TeleopDashboard initialized'),
     );
+    _loadSavedServers();
   }
 
   @override
@@ -66,7 +69,92 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     super.dispose();
   }
 
-  // 2. Dynamic connection routine using the editable text field value
+  String _debugLine(String id, String message) {
+    const int maxLineLength = 256;
+    final text = 'D$id $message';
+    if (text.length <= maxLineLength) return text;
+    return '${text.substring(0, maxLineLength - 3)}...';
+  }
+
+  Future<void> _loadSavedServers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList('saved_servers') ?? <String>[];
+    final decoded = list.map((s) {
+      try {
+        final m = jsonDecode(s) as Map<String, dynamic>;
+        return {
+          'name': m['name']?.toString() ?? m['address']?.toString() ?? '',
+          'address': m['address']?.toString() ?? '',
+        };
+      } catch (e) {
+        return {'name': s, 'address': s};
+      }
+    }).toList();
+    setState(() {
+      _savedServers = decoded.cast<Map<String, String>>();
+      if (_savedServers.isNotEmpty &&
+          (_hostnameController.text.isEmpty ||
+              _hostnameController.text == 'localhost')) {
+        _hostnameController.text = _savedServers.first['address'] ?? '';
+      }
+    });
+  }
+
+  Future<void> _saveServerList() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = _savedServers.map((m) => jsonEncode(m)).toList();
+    await prefs.setStringList('saved_servers', encoded);
+  }
+
+  Future<void> _selectServerByAddress(
+    String address, {
+    bool connect = true,
+  }) async {
+    final idx = _savedServers.indexWhere((m) => m['address'] == address);
+    if (idx == -1) return;
+    final server = _savedServers[idx];
+    setState(() {
+      _hostnameController.text = server['address'] ?? '';
+      _currentServerName = server['name'] ?? server['address'] ?? '';
+    });
+    setState(() {
+      _savedServers.removeAt(idx);
+      _savedServers.insert(0, server);
+    });
+    await _saveServerList();
+    if (connect) {
+      if (_isConnected) {
+        _closeConnection();
+      }
+      _toggleConnection();
+    }
+  }
+
+  void _navigateManage() async {
+    final List<Map<String, String>> initial = List<Map<String, String>>.from(
+      _savedServers,
+    );
+
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute<Map<String, dynamic>>(
+        builder: (_) => ManageServersPage(initial: initial),
+      ),
+    );
+    if (result != null && result.containsKey('servers')) {
+      final raw = result['servers'] as List;
+      final servers = raw.map((e) {
+        if (e is String) return {'name': e, 'address': e};
+        if (e is Map) return Map<String, String>.from(e as Map);
+        return {'name': e.toString(), 'address': e.toString()};
+      }).toList();
+      setState(() {
+        _savedServers = servers.cast<Map<String, String>>();
+      });
+      await _saveServerList();
+    }
+  }
+
+  // connection logic (unchanged)
   void _toggleConnection() {
     if (_isConnected) {
       _closeConnection();
@@ -74,14 +162,12 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
       final host = _hostnameController.text.trim();
       if (host.isEmpty) return;
 
-      final targetUri =
-          'ws://$host:9090'; // Automatically formats the editable target address
+      final targetUri = 'ws://$host:9090';
 
       try {
         setState(() {
           _connectionStatus = "Connecting to $targetUri...";
         });
-
         developer.log(
           _debugLine(
             '02',
@@ -91,26 +177,19 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
         _channel = WebSocketChannel.connect(Uri.parse(targetUri));
 
+        // Try to find matching saved server to get its name
+        final serverIdx = _savedServers.indexWhere((m) => m['address'] == host);
+        final displayName = serverIdx != -1
+            ? (_savedServers[serverIdx]['name'] ?? host)
+            : host;
+
         setState(() {
           _isConnected = true;
-          _connectionStatus = "Connected to $host";
+          _currentServerName = displayName;
+          _connectionStatus = "Connected to $_currentServerName";
           _rosBridgeStatus = "Connected to ROSBridge";
         });
 
-        print(
-          _debugLine(
-            '03',
-            '[FLUTTER_CONNECTED] Successfully connected to $host',
-          ),
-        );
-        developer.log(
-          _debugLine(
-            '04',
-            '[FLUTTER_CONNECTED] Successfully connected to $host',
-          ),
-        );
-
-        // Send stop command on connection
         _sendStopCommand();
         _subscribeToRosBridgeStreams();
       } catch (e) {
@@ -127,10 +206,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
   void _closeConnection() {
     developer.log(_debugLine('06', '[FLUTTER_DISCONNECT] Closing connection'));
-
-    // Send stop command before disconnecting
     _sendStopCommand();
-
     if (_channel != null) {
       _channel!.sink.add(
         jsonEncode({"op": "unsubscribe", "topic": "/immobility_alert"}),
@@ -152,10 +228,8 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     });
   }
 
-  // 3. Serializes and transmits continuous movement payloads over the active channel
   void _sendTwistCommand(double linearX, double angularZ) {
     if (!_isConnected || _channel == null) return;
-
     final Map<String, dynamic> rosbridgeMessage = {
       "op": "publish",
       "topic": "/cmd_vel",
@@ -165,25 +239,15 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
         "angular": {"x": 0.0, "y": 0.0, "z": angularZ},
       },
     };
-
     _channel!.sink.add(jsonEncode(rosbridgeMessage));
   }
 
-  void _sendStopCommand() {
-    _sendTwistCommand(0.0, 0.0);
-  }
+  void _sendStopCommand() => _sendTwistCommand(0.0, 0.0);
 
   void _dismissImmobilityAlert() {
     setState(() {
       _immobilityAlert = null;
     });
-  }
-
-  String _debugLine(String id, String message) {
-    const int maxLineLength = 256;
-    final text = 'D$id $message';
-    if (text.length <= maxLineLength) return text;
-    return '${text.substring(0, maxLineLength - 3)}...';
   }
 
   void _subscribeToRosBridgeStreams() {
@@ -208,49 +272,20 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     };
     _channel!.sink.add(jsonEncode(subscribeAlert));
     _channel!.sink.add(jsonEncode(subscribeVideo));
-    developer.log(
-      _debugLine(
-        '08',
-        '[ROSBRIDGE_SUBSCRIBE] Sent subscribe requests for /immobility_alert and /camera/web',
-      ),
-    );
-    print(
-      _debugLine(
-        '09',
-        '[ROSBRIDGE_SUBSCRIBE] Sent subscribe requests for /immobility_alert and /camera/web',
-      ),
-    );
 
     _rosBridgeSubscription = _channel!.stream.listen(
       (dynamic message) {
         try {
-          print(_debugLine('10', '[ROSBRIDGE_TEXT] ${message.toString()}'));
-          developer.log(
-            _debugLine('11', '[ROSBRIDGE_TEXT] ${message.toString()}'),
-          );
           final decoded = jsonDecode(message as String) as Map<String, dynamic>;
-          developer.log(
-            _debugLine('12', '[ROSBRIDGE_RAW] ${decoded.toString()}'),
-          );
           final op = decoded["op"] as String?;
           final topic = decoded["topic"] as String?;
-          developer.log(
-            _debugLine('27', '[ROSBRIDGE_PARSED] op=$op topic=$topic'),
-          );
 
           if (op == "publish" &&
               topic != "/camera/web" &&
-              topic != "/immobility_alert") {
-            developer.log(
-              _debugLine('28', '[ROSBRIDGE_IGNORED] publish on topic=$topic'),
-            );
+              topic != "/immobility_alert")
             return;
-          }
 
           if (op == "subscribe") {
-            developer.log(
-              _debugLine('13', '[ROSBRIDGE_ACK] Subscribed to topic=$topic'),
-            );
             if (mounted) {
               setState(() {
                 _rosBridgeStatus = "Subscribed to $topic";
@@ -264,7 +299,6 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
             final msg = decoded["msg"] as Map<String, dynamic>;
             final String alertText =
                 msg["message"] as String? ?? msg.toString();
-            developer.log(_debugLine('14', '[IMMOBILITY_ALERT] $alertText'));
             setState(() {
               _immobilityAlert = alertText;
             });
@@ -277,12 +311,6 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                 _rosBridgeStatus = "Receiving /camera/web";
               });
             }
-            developer.log(
-              _debugLine(
-                '29',
-                '[ROSBRIDGE_WEB] publish received for /camera/web',
-              ),
-            );
             _videoFrameCounter++;
             _framesSinceLog++;
 
@@ -290,76 +318,27 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
             final String format = msg["format"] as String? ?? "unknown";
             final dynamic dataField = msg["data"];
 
-            developer.log(
-              _debugLine(
-                '15',
-                '[VIDEO_FRAME_$_videoFrameCounter] Received format=$format, data_type=${dataField.runtimeType}',
-              ),
-            );
-
-            // [STAGE 1] Extract video data
             Uint8List? frameData;
             if (dataField is String) {
-              // Base64 encoded data
               try {
                 frameData = base64Decode(dataField);
-                developer.log(
-                  _debugLine(
-                    '16',
-                    '[VIDEO_FRAME_$_videoFrameCounter] Decoded base64 frame: ${frameData.length} bytes',
-                  ),
-                );
               } catch (e) {
-                developer.log(
-                  _debugLine(
-                    '17',
-                    '[VIDEO_ERROR_$_videoFrameCounter] Failed to decode base64: $e',
-                  ),
-                );
                 return;
               }
             } else if (dataField is List) {
               frameData = Uint8List.fromList(List<int>.from(dataField));
-              developer.log(
-                _debugLine(
-                  '18',
-                  '[VIDEO_FRAME_$_videoFrameCounter] Converted list to bytes: ${frameData.length} bytes',
-                ),
-              );
             }
 
-            if (frameData == null || frameData.isEmpty) {
-              developer.log(
-                _debugLine(
-                  '19',
-                  '[VIDEO_ERROR_$_videoFrameCounter] No frame data available',
-                ),
-              );
-              return;
-            }
+            if (frameData == null || frameData.isEmpty) return;
 
-            // [STAGE 2] Update UI with new frame
             setState(() {
               _latestVideoFrame = frameData;
             });
-            developer.log(
-              _debugLine(
-                '20',
-                '[VIDEO_FRAME_$_videoFrameCounter] Display updated',
-              ),
-            );
 
-            // [PERIODIC STATS] Log FPS every 5 seconds
             final now = DateTime.now();
             if (now.difference(_lastLogTime).inSeconds >= 5) {
               final fps =
                   _framesSinceLog / now.difference(_lastLogTime).inSeconds;
-              developer.log(
-                _debugLine(
-                  '21',
-                  '[VIDEO_STATS] Frame $_videoFrameCounter: ${fps.toStringAsFixed(1)} FPS, size=${frameData.length}B',
-                ),
-              );
               setState(() {
                 _videoStats =
                     "${fps.toStringAsFixed(1)} FPS (frame $_videoFrameCounter)";
@@ -369,24 +348,11 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
             }
             return;
           }
-
-          // Other ROS bridge messages are ignored by this listener
         } catch (e) {
-          developer.log(
-            _debugLine(
-              '22',
-              '[ROSBRIDGE_PARSE_ERROR] Failed to parse ROSBridge message: $e',
-            ),
-          );
+          developer.log(_debugLine('22', '[ROSBRIDGE_PARSE_ERROR] $e'));
         }
       },
       onError: (error) {
-        print(
-          _debugLine('23', '[ROSBRIDGE_ERROR] ROSBridge stream error: $error'),
-        );
-        developer.log(
-          _debugLine('24', '[ROSBRIDGE_ERROR] ROSBridge stream error: $error'),
-        );
         setState(() {
           _videoStats = "ROSBridge stream error";
           _rosBridgeStatus = "ROSBridge stream error";
@@ -394,10 +360,6 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
       },
       onDone: () {
         if (mounted) {
-          print(_debugLine('25', '[ROSBRIDGE_DONE] ROSBridge stream closed'));
-          developer.log(
-            _debugLine('26', '[ROSBRIDGE_DONE] ROSBridge stream closed'),
-          );
           setState(() {
             _videoStats = "ROSBridge stream closed";
             _rosBridgeStatus = "ROSBridge stream closed";
@@ -410,52 +372,45 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('R2K9 UI Interface')),
+      appBar: AppBar(
+        title: const Text('R2K9 UI Interface'),
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Select robot',
+            onSelected: (value) {
+              if (value == '__manage__') {
+                _navigateManage();
+              } else {
+                _selectServerByAddress(value);
+              }
+            },
+            itemBuilder: (context) {
+              final items = <PopupMenuEntry<String>>[];
+              for (final s in _savedServers) {
+                items.add(
+                  PopupMenuItem(
+                    value: s['address'] ?? '',
+                    child: Text(s['name'] ?? s['address'] ?? ''),
+                  ),
+                );
+              }
+              if (_savedServers.isNotEmpty) items.add(const PopupMenuDivider());
+              items.add(
+                const PopupMenuItem(
+                  value: '__manage__',
+                  child: Text('Manage...'),
+                ),
+              );
+              return items;
+            },
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // --- HOSTNAME CONFIGURATION LAYER ---
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _hostnameController,
-                        enabled:
-                            !_isConnected, // Prevent edits while actively connected
-                        decoration: const InputDecoration(
-                          labelText: 'Robot Hostname / VPN IP',
-                          hintText: 'e.g., 10.8.0.2 or localhost',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.dns),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: _toggleConnection,
-                      icon: Icon(_isConnected ? Icons.link_off : Icons.link),
-                      label: Text(_isConnected ? 'Disconnect' : 'Connect'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _isConnected
-                            ? Colors.red
-                            : Colors.green,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 20,
-                          horizontal: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
             const SizedBox(height: 10),
-
-            // Connection Status Feedback Text
             Text(
               _connectionStatus,
               style: TextStyle(
@@ -463,8 +418,6 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                 color: _isConnected ? Colors.green : Colors.orange,
               ),
             ),
-
-            // [VIDEO DISPLAY] Show camera stream with statistics
             if (_latestVideoFrame != null) ...[
               const SizedBox(height: 16),
               Card(
@@ -520,7 +473,6 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                 ),
               ),
             ],
-
             if (_immobilityAlert != null) ...[
               const SizedBox(height: 10),
               Card(
@@ -553,14 +505,11 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
             ],
             const SizedBox(height: 16),
             const Divider(height: 30),
-
-            // --- SIMPLIFIED TELEOP SUITE (DPAD TARGET) ---
             Expanded(
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Forward Arrow Button
                     IconButton(
                       iconSize: 64,
                       icon: const Icon(
@@ -574,7 +523,6 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Left Arrow Button
                         IconButton(
                           iconSize: 64,
                           icon: const Icon(
@@ -586,30 +534,16 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                               : null,
                         ),
                         const SizedBox(width: 16),
-                        // Central Stop Button
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              iconSize: 64,
-                              icon: const Icon(
-                                Icons.stop_circle,
-                                color: Colors.red,
-                              ),
-                              onPressed: _isConnected ? _sendStopCommand : null,
-                              tooltip: 'Stop (zero velocity)',
-                            ),
-                            const Text(
-                              'STOP',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.red,
-                              ),
-                            ),
-                          ],
+                        IconButton(
+                          iconSize: 64,
+                          icon: const Icon(
+                            Icons.stop_circle,
+                            color: Colors.red,
+                          ),
+                          onPressed: _isConnected ? _sendStopCommand : null,
+                          tooltip: 'Stop (zero velocity)',
                         ),
                         const SizedBox(width: 16),
-                        // Right Arrow Button
                         IconButton(
                           iconSize: 64,
                           icon: const Icon(
@@ -622,7 +556,6 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                         ),
                       ],
                     ),
-                    // Backward Arrow Button
                     IconButton(
                       iconSize: 64,
                       icon: const Icon(
@@ -638,6 +571,125 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class ManageServersPage extends StatefulWidget {
+  final List<Map<String, String>> initial;
+  const ManageServersPage({super.key, required this.initial});
+
+  @override
+  State<ManageServersPage> createState() => _ManageServersPageState();
+}
+
+class _ManageServersPageState extends State<ManageServersPage> {
+  late List<Map<String, String>> _servers;
+  final TextEditingController _addressController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _servers = List.from(widget.initial);
+  }
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    super.dispose();
+  }
+
+  void _addServer() {
+    final address = _addressController.text.trim();
+    if (address.isEmpty) return;
+    final entry = {'name': address, 'address': address};
+    setState(() {
+      _servers.removeWhere((e) => e['address'] == address);
+      _servers.insert(0, entry);
+      _addressController.clear();
+    });
+  }
+
+  Future<void> _confirmDelete(String address) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (c) {
+        return AlertDialog(
+          title: const Text('Delete server?'),
+          content: const Text('Are you sure you want to delete this server?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(c).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(c).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed == true) {
+      setState(() {
+        _servers.removeWhere((e) => e['address'] == address);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.of(context).pop({'servers': _servers});
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Robot Selection'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop({'servers': _servers}),
+              child: const Text('Save', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            children: [
+              TextField(
+                controller: _addressController,
+                decoration: const InputDecoration(
+                  labelText: 'address',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(onPressed: _addServer, child: const Text('Add')),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _servers.length,
+                  itemBuilder: (context, index) {
+                    final s = _servers[index];
+                    return ListTile(
+                      title: Text(s['name'] ?? ''),
+                      subtitle: Text(s['address'] ?? ''),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () => _confirmDelete(s['address'] ?? ''),
+                      ),
+                      onTap: () =>
+                          Navigator.of(context).pop({'servers': _servers}),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
