@@ -41,6 +41,11 @@ def generate_launch_description():
             executable='immobility_monitor',
             name='object_immobility_monitor',
             output='screen',
+            arguments=[
+                '--ros-args',
+                '--params-file',
+                'src/r2k9_robot/config/immobility_monitor.yaml',
+            ],
         ),
         Node(
             package='r2k9_robot',
