@@ -51,3 +51,6 @@ pip install "numpy<2" --force-reinstall --break-system-packages
 pip install "scipy<1.14" "opencv-python<4.10" --break-system-packages
 
 flutter emulators --launch Pixel_3a_API_35_extension_level_13_x86_64
+
+sudo usermod -aG video sca
+
