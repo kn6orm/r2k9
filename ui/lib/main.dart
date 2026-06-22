@@ -60,6 +60,8 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   int _audioChunksSinceLog = 0;
   late DateTime _lastAudioLogTime;
   String _audioStats = "No audio";
+  bool _audioPlayerOpened = false;
+  Future<void> _audioPipeline = Future.value();
 
   @override
   void initState() {
@@ -134,7 +136,10 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
       developer.log(_debugLine('31', '[AUDIO_STOP_ERROR] $e'));
     }
 
-    await _audioPlayer.openPlayer();
+    if (!_audioPlayerOpened) {
+      await _audioPlayer.openPlayer();
+      _audioPlayerOpened = true;
+    }
     await _audioPlayer.startPlayerFromStream(
       codec: Codec.pcmFloat32,
       numChannels: channels,
@@ -159,6 +164,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     try {
       await _audioPlayer.closePlayer();
     } catch (_) {}
+    _audioPlayerOpened = false;
     _audioConfiguredSampleRate = null;
     _audioConfiguredChannels = null;
   }
@@ -439,7 +445,11 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                 _rosBridgeStatus = "Receiving /audio/web";
               });
             }
-            unawaited(_handleAudioMessage(decoded));
+            _audioPipeline = _audioPipeline
+                .then((_) => _handleAudioMessage(decoded))
+                .catchError((error) {
+                  developer.log(_debugLine('34', '[AUDIO_PIPELINE_ERROR] $error'));
+                });
             return;
           }
 
@@ -533,7 +543,9 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                   ),
                 );
               }
-              if (_savedServers.isNotEmpty) items.add(const PopupMenuDivider());
+              if (_savedServers.isNotEmpty) {
+                items.add(const PopupMenuDivider());
+              }
               items.add(
                 const PopupMenuItem(
                   value: '__manage__',
@@ -547,10 +559,10 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _isConnected ? _closeConnection : null,
-        child: const Icon(Icons.link_off),
         tooltip: 'Disconnect from server',
+        child: const Icon(Icons.link_off),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
@@ -571,61 +583,49 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                 fontFamily: 'monospace',
               ),
             ),
-            if (_latestVideoFrame != null) ...[
-              const SizedBox(height: 16),
-              Card(
-                color: Colors.grey.shade900,
-                child: Column(
-                  children: [
-                    Image.memory(
-                      _latestVideoFrame!,
-                      width: 400,
-                      height: 300,
-                      fit: BoxFit.contain,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(
-                        'Video: $_videoStats',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.cyan,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ] else ...[
-              const SizedBox(height: 16),
-              Card(
-                color: Colors.grey.shade900,
-                child: Container(
-                  width: 400,
-                  height: 300,
-                  alignment: Alignment.center,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.videocam_off,
-                        size: 64,
-                        color: Colors.grey.shade600,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _videoStats,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade400,
-                        ),
-                      ),
-                    ],
+            const SizedBox(height: 16),
+            Card(
+              color: Colors.grey.shade900,
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    height: 220,
+                    child: _latestVideoFrame != null
+                        ? Image.memory(_latestVideoFrame!, fit: BoxFit.contain)
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.videocam_off,
+                                size: 64,
+                                color: Colors.grey.shade600,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _videoStats,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade400,
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
-                ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      'Video: $_videoStats',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.cyan,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
             const SizedBox(height: 10),
             Card(
               color: Colors.grey.shade900,
@@ -649,35 +649,6 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                 ),
               ),
             ),
-            if (_immobilityAlert != null) ...[
-              const SizedBox(height: 16),
-              Card(
-                color: Colors.grey.shade900,
-                child: Container(
-                  width: 400,
-                  height: 300,
-                  alignment: Alignment.center,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.videocam_off,
-                        size: 64,
-                        color: Colors.grey.shade600,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _videoStats,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade400,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
             if (_immobilityAlert != null) ...[
               const SizedBox(height: 10),
               Card(
@@ -710,69 +681,51 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
             ],
             const SizedBox(height: 16),
             const Divider(height: 30),
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      iconSize: 64,
-                      icon: const Icon(
-                        Icons.arrow_circle_up,
-                        color: Colors.blue,
+            Center(
+              child: Column(
+                children: [
+                  IconButton(
+                    iconSize: 64,
+                    icon: const Icon(Icons.arrow_circle_up, color: Colors.blue),
+                    onPressed: _isConnected
+                        ? () => _sendTwistCommand(1.0, 0.0)
+                        : null,
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        iconSize: 64,
+                        icon: const Icon(Icons.arrow_circle_left, color: Colors.blue),
+                        onPressed: _isConnected
+                            ? () => _sendTwistCommand(0.0, 1.0)
+                            : null,
                       ),
-                      onPressed: _isConnected
-                          ? () => _sendTwistCommand(1.0, 0.0)
-                          : null,
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          iconSize: 64,
-                          icon: const Icon(
-                            Icons.arrow_circle_left,
-                            color: Colors.blue,
-                          ),
-                          onPressed: _isConnected
-                              ? () => _sendTwistCommand(0.0, 1.0)
-                              : null,
-                        ),
-                        const SizedBox(width: 16),
-                        IconButton(
-                          iconSize: 64,
-                          icon: const Icon(
-                            Icons.stop_circle,
-                            color: Colors.red,
-                          ),
-                          onPressed: _isConnected ? _sendStopCommand : null,
-                          tooltip: 'Stop (zero velocity)',
-                        ),
-                        const SizedBox(width: 16),
-                        IconButton(
-                          iconSize: 64,
-                          icon: const Icon(
-                            Icons.arrow_circle_right,
-                            color: Colors.blue,
-                          ),
-                          onPressed: _isConnected
-                              ? () => _sendTwistCommand(0.0, -1.0)
-                              : null,
-                        ),
-                      ],
-                    ),
-                    IconButton(
-                      iconSize: 64,
-                      icon: const Icon(
-                        Icons.arrow_circle_down,
-                        color: Colors.blue,
+                      const SizedBox(width: 16),
+                      IconButton(
+                        iconSize: 64,
+                        icon: const Icon(Icons.stop_circle, color: Colors.red),
+                        onPressed: _isConnected ? _sendStopCommand : null,
+                        tooltip: 'Stop (zero velocity)',
                       ),
-                      onPressed: _isConnected
-                          ? () => _sendTwistCommand(-1.0, 0.0)
-                          : null,
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 16),
+                      IconButton(
+                        iconSize: 64,
+                        icon: const Icon(Icons.arrow_circle_right, color: Colors.blue),
+                        onPressed: _isConnected
+                            ? () => _sendTwistCommand(0.0, -1.0)
+                            : null,
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    iconSize: 64,
+                    icon: const Icon(Icons.arrow_circle_down, color: Colors.blue),
+                    onPressed: _isConnected
+                        ? () => _sendTwistCommand(-1.0, 0.0)
+                        : null,
+                  ),
+                ],
               ),
             ),
           ],
