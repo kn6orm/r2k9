@@ -415,8 +415,9 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
           if (op == "publish" &&
               topic != "/camera/web" &&
               topic != "/immobility_alert" &&
-              topic != "/audio/web")
+              topic != "/audio/web") {
             return;
+          }
 
           if (op == "subscribe") {
             if (mounted) {
