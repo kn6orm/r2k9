@@ -6,7 +6,7 @@ package_name = 'r2k9_robot'
 setup(
     name=package_name,
     version='0.0.0',
-    packages=[package_name], 
+    packages=[package_name],
 
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -14,7 +14,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', glob('launch/*.py')),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'vosk'],
     zip_safe=True,
     maintainer='sca',
     maintainer_email='sca@photon.local',
@@ -25,6 +25,7 @@ setup(
         'console_scripts': [
             'dpad_logger = r2k9_robot.dpad_logger_node:main',
             'robot_audio = r2k9_robot.robot_audio_node:main',
+            'audio_alert_monitor = r2k9_robot.audio_alert_monitor:main',
             'robot_vision = r2k9_robot.robot_vision_node:main',
             'immobility_monitor = r2k9_robot.object_immobility_monitor:main',
             'kobuki_controller = r2k9_robot.kobuki_controller_node:main',
