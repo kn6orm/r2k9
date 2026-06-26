@@ -4,11 +4,12 @@ set -e
 set -v
 
 # 1. Update system package index first
-sudo apt update
+apt update -y
+apt upgrade -y
 
 # 2. Install fundamental system and Python utilities
-sudo apt install python-is-python3 python3-pip python3-venv -y
-sudo apt install ros-jazzy-rosbridge-suite -y
+apt install python-is-python3 python3-pip python3-venv -y
+apt install ros-jazzy-rosbridge-suite -y
 
 # 3. Resolve ROS workspace package dependencies via rosdep
 rosdep update
