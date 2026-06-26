@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN git clone -b docker https://github.com/kn6orm/r2k9.git
 
 RUN cd r2k9/ros
-
+ENV DOCKER_BUILD=1
 RUN source ../tools/install.bash
 
 # Copy the entrypoint script into the container

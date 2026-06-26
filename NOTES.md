@@ -70,11 +70,10 @@ docker run -it \
 git clone --depth 1 https://github.com/Freenove/Freenove_4WD_Smart_Car_Kit_for_Raspberry_Pi
 
 -------------------------------------------------
-apt update -y
-apt upgrade -y
+
+
 git clone -b docker https://github.com/kn6orm/r2k9.git
 cd r2k9/ros
-
 source ../tools/install.bash
 
 
