@@ -74,10 +74,28 @@ apt update -y
 apt upgrade -y
 git clone -b docker https://github.com/kn6orm/r2k9.git
 cd r2k9/ros
+
+source ../tools/install.bash
+
+
+
 rosdep install --from-paths src --ignore-src -r -y
 apt install ros-jazzy-rosbridge-suite -y
-apt install python3-is-python python3-pip python3-venv -y
-#pip install ultralytics --break-system-packages --ignore-installed
+apt install python-is-python3 python3-pip python3-venv -y
+pip install ultralytics --break-system-packages --ignore-installed
 #pip install "numpy<2" --ignore-installed --break-system-packages
 
+docker pull ros:jazzy-ros-base-noble
+
+docker run -it \       
+  --name expt04 \
+  --net=host \
+  -v .:/workspace \
+  ros:jazzy-ros-base-noble
+
+docker system prune -a --volumes -f
+
+docker image list
+
+docker start -ai expt04
 
