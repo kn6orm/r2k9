@@ -71,12 +71,17 @@ git clone --depth 1 https://github.com/Freenove/Freenove_4WD_Smart_Car_Kit_for_R
 
 -------------------------------------------------
 
+## Docker setup
+
+## Manual
 
 git clone -b docker https://github.com/kn6orm/r2k9.git
 cd r2k9/ros
+export DOCKER_BUILD=1
 source ../tools/install.bash
 
 
+# leftover
 
 rosdep install --from-paths src --ignore-src -r -y
 apt install ros-jazzy-rosbridge-suite -y

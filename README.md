@@ -20,6 +20,11 @@ Rather than equip an environment with multiple cameras and microphones, R2K9 eff
 
 R2K9 requires [ROS2 Jazzy](https://docs.ros.org/en/jazzy/index.html) and [flutter](https://flutter.dev/)
 
+```
+cd ros
+source ../tools/install.bash
+```
+
 ### Control app
 
 Build and run the control app
