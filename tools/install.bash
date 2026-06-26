@@ -1,43 +1,29 @@
-#!/bin/bash
+# Prefix apt with sudo outside Docker builds.
+apt_cmd() {
+	if [ -z "${DOCKER_BUILD:-}" ]; then
+		sudo apt "$@"
+	else
+		apt "$@"
+	fi
+}
 
-set -e
+# 1. Update system package index first
+apt_cmd update -y
+apt_cmd upgrade -y
 
-cd # move to home directory
+# 2. Install fundamental system, audio, and Python utilities
+apt_cmd install python-is-python3 python3-pip python3-venv alsa-utils -y
+apt_cmd install ros-jazzy-rosbridge-suite -y
+apt_cmd install alsa-utils -y
 
-apt-get update && apt-get install -y locales && \
-    locale-gen en_US en_US.UTF-8 && \
-    update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
-export LANG=en_US.UTF-8
+# 3. Resolve ROS workspace package dependencies via rosdep
+rosdep update
+rosdep install --from-paths src --ignore-src -r -y
 
-# Install initial dependencies and software-properties-common
-apt-get update && apt-get install -y \
-    curl \
-    gnupg2 \
-    lsb-release \
-    software-properties-common \
-    && rm -rf /var/lib/apt/lists/*
+# 4. Install Ultralytics and its sub-dependencies safely without altering NumPy
+pip install ultralytics --no-deps --break-system-packages
+pip install "matplotlib>=3.3.0" "nvidia-ml-py>=12.0.0" "polars>=0.20.0" "ultralytics-thop>=2.0.18" --break-system-packages
 
-# Add the ROS 2 apt repository GPG key
-curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
-
-# Add the repository to your sources list
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
-
-# Install ROS 2 Jazzy packages
-# Options: ros-jazzy-desktop (with GUI tools) or ros-jazzy-ros-base (barebones/headless)
-apt-get update && apt-get install -y \
-    ros-jazzy-ros-base \
-    ros-dev-tools \
-    && rm -rf /var/lib/apt/lists/*
-
-# Automatically source ROS 2 environment for interactive bash sessions
-echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
-
-git clone https://github.com/kn6orm/r2k9.git
-
-apt install ros-jazzy-rosbridge-suite
-
-pip install ultralytics --break-system-packages
-pip install "numpy<2" --force-reinstall --break-system-packages
-pip install "scipy<1.14" "opencv-python<4.10" --break-system-packages
-
+# 5. Build and source the workspace
+colcon build --symlink-install
+source install/setup.bash

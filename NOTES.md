@@ -57,3 +57,49 @@ flutter emulators --launch Pixel_3a_API_35_extension_level_13_x86_64
 
 sudo usermod -aG video sca
 
+docker pull ros:jazzy-ros-base-noble
+tiryoh/ros2-desktop-vnc:jazzy
+
+docker run -it \
+  --name ros_jazzy_dev \
+  --net=host \
+  -v /path/to/your/local/workspace:/workspace \
+  ros:jazzy-ros-base-noble
+
+
+git clone --depth 1 https://github.com/Freenove/Freenove_4WD_Smart_Car_Kit_for_Raspberry_Pi
+
+-------------------------------------------------
+
+## Docker setup
+
+## Manual
+
+git clone -b docker https://github.com/kn6orm/r2k9.git
+cd r2k9/ros
+export DOCKER_BUILD=1
+source ../tools/install.bash
+
+
+# leftover
+
+rosdep install --from-paths src --ignore-src -r -y
+apt install ros-jazzy-rosbridge-suite -y
+apt install python-is-python3 python3-pip python3-venv -y
+pip install ultralytics --break-system-packages --ignore-installed
+#pip install "numpy<2" --ignore-installed --break-system-packages
+
+docker pull ros:jazzy-ros-base-noble
+
+docker run -it \       
+  --name expt04 \
+  --net=host \
+  -v .:/workspace \
+  ros:jazzy-ros-base-noble
+
+docker system prune -a --volumes -f
+
+docker image list
+
+docker start -ai expt04
+
