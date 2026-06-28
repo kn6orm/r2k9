@@ -30,3 +30,7 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# screen logs
+screen-*.log
+

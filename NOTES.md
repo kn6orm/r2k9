@@ -55,22 +55,6 @@ screen -LdmS r2k9_robot ros2 launch r2k9_robot r2k9.launch.py
 
 flutter emulators --launch Pixel_3a_API_35_extension_level_13_x86_64
 
-sudo usermod -aG video sca
-
-docker pull ros:jazzy-ros-base-noble
-tiryoh/ros2-desktop-vnc:jazzy
-
-docker run -it \
-  --name ros_jazzy_dev \
-  --net=host \
-  -v /path/to/your/local/workspace:/workspace \
-  ros:jazzy-ros-base-noble
-
-
-git clone --depth 1 https://github.com/Freenove/Freenove_4WD_Smart_Car_Kit_for_Raspberry_Pi
-
--------------------------------------------------
-
 ## Docker setup
 
 ## Manual
@@ -102,4 +86,9 @@ docker system prune -a --volumes -f
 docker image list
 
 docker start -ai expt04
+
+sudo usermod -aG dialout $USER
+sudo usermod -aG video $USER
+
+sudo apt install screen
 

@@ -1,9 +1,9 @@
 # Prefix apt with sudo outside Docker builds.
-apt_cmd() {
+sudo_cmd() {
 	if [ -z "${DOCKER_BUILD:-}" ]; then
-		sudo apt "$@"
+		sudo "$@"
 	else
-		apt "$@"
+		"$@"
 	fi
 }
 
@@ -11,10 +11,16 @@ apt_cmd() {
 apt_cmd update -y
 apt_cmd upgrade -y
 
+# ensure correct permissions
+sudo_cmd usermod -aG dialout $USER
+sudo_cmd usermod -aG video $USER
+
+
 # 2. Install fundamental system, audio, and Python utilities
 apt_cmd install python-is-python3 python3-pip python3-venv alsa-utils -y
 apt_cmd install ros-jazzy-rosbridge-suite -y
 apt_cmd install alsa-utils -y
+sudo_cmd apt install screen
 
 # 3. Resolve ROS workspace package dependencies via rosdep
 rosdep update
