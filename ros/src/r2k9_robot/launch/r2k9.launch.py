@@ -9,13 +9,23 @@ import os
 
 def generate_launch_description():
     device_id_arg = DeclareLaunchArgument(
-        'device_id', default_value='0', description='Camera device ID'
+        'device_id', default_value='-1', description='Camera device ID (-1 = auto-scan all)'
     )
     frame_width_arg = DeclareLaunchArgument(
         'frame_width', default_value='640', description='Camera frame width'
     )
     frame_height_arg = DeclareLaunchArgument(
         'frame_height', default_value='480', description='Camera frame height'
+    )
+    reconnect_interval_arg = DeclareLaunchArgument(
+        'camera_reconnect_interval_sec',
+        default_value='1.0',
+        description='Seconds between camera reconnect attempts',
+    )
+    read_failures_arg = DeclareLaunchArgument(
+        'camera_read_failures_before_reconnect',
+        default_value='3',
+        description='Consecutive read failures before reconnect',
     )
     audio_device_arg = DeclareLaunchArgument(
         'audio_device',
@@ -47,6 +57,8 @@ def generate_launch_description():
         device_id_arg,
         frame_width_arg,
         frame_height_arg,
+        reconnect_interval_arg,
+        read_failures_arg,
         audio_device_arg,
         audio_sample_rate_arg,
         audio_channels_arg,
@@ -96,6 +108,8 @@ def generate_launch_description():
                 {'device_id': LaunchConfiguration('device_id')},
                 {'frame_width': LaunchConfiguration('frame_width')},
                 {'frame_height': LaunchConfiguration('frame_height')},
+                {'reconnect_interval_sec': LaunchConfiguration('camera_reconnect_interval_sec')},
+                {'read_failures_before_reconnect': LaunchConfiguration('camera_read_failures_before_reconnect')},
             ],
         ),
     ])
