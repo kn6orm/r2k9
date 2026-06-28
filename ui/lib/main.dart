@@ -32,6 +32,14 @@ class TeleopDashboard extends StatefulWidget {
   State<TeleopDashboard> createState() => _TeleopDashboardState();
 }
 
+class _AlertItem {
+  final String id;
+  final String type;
+  final Map<String, dynamic> details;
+
+  _AlertItem({required this.id, required this.type, required this.details});
+}
+
 class _TeleopDashboardState extends State<TeleopDashboard> {
   final TextEditingController _hostnameController = TextEditingController(
     text: 'localhost',
@@ -43,7 +51,8 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   bool _isConnected = false;
   String _connectionStatus = "Disconnected";
   String _rosBridgeStatus = "Disconnected";
-  String? _immobilityAlert;
+  final List<_AlertItem> _alerts = [];
+  int _alertCounter = 0;
 
   List<Map<String, String>> _savedServers = [];
 
@@ -129,7 +138,8 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     }
 
     try {
-      if (_audioConfiguredSampleRate != null || _audioConfiguredChannels != null) {
+      if (_audioConfiguredSampleRate != null ||
+          _audioConfiguredChannels != null) {
         await _audioPlayer.stopPlayer();
       }
     } catch (e) {
@@ -210,10 +220,12 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     _audioChunksSinceLog++;
     final now = DateTime.now();
     if (now.difference(_lastAudioLogTime).inSeconds >= 5) {
-      final rate = _audioChunksSinceLog / now.difference(_lastAudioLogTime).inSeconds;
+      final rate =
+          _audioChunksSinceLog / now.difference(_lastAudioLogTime).inSeconds;
       if (mounted) {
         setState(() {
-          _audioStats = '${rate.toStringAsFixed(1)} chunks/s (chunk $_audioChunkCounter)';
+          _audioStats =
+              '${rate.toStringAsFixed(1)} chunks/s (chunk $_audioChunkCounter)';
         });
       }
       _audioChunksSinceLog = 0;
@@ -346,7 +358,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
       _isConnected = false;
       _connectionStatus = "Disconnected";
       _rosBridgeStatus = "Disconnected";
-      _immobilityAlert = null;
+      _alerts.clear();
       _videoStats = "No video";
       _audioStats = "No audio";
       _audioChunkCounter = 0;
@@ -372,8 +384,60 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
   void _dismissImmobilityAlert() {
     setState(() {
-      _immobilityAlert = null;
+      _alerts.clear();
     });
+  }
+
+  void _dismissAlertById(String id) {
+    setState(() {
+      _alerts.removeWhere((alert) => alert.id == id);
+    });
+  }
+
+  Future<void> _showAlertDetails(_AlertItem alert) async {
+    final shouldDismiss = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final details = alert.details;
+        final contentLines = <String>[
+          if (details['message'] != null) 'Message: ${details['message']}',
+          if (details['object_class'] != null)
+            'Object class: ${details['object_class']}',
+          if (details['duration_seconds'] != null)
+            'Duration: ${details['duration_seconds']} seconds',
+        ];
+
+        return AlertDialog(
+          title: Text(alert.type),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: contentLines
+                .map(
+                  (line) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Text(line),
+                  ),
+                )
+                .toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Close'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Dismiss'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDismiss == true) {
+      _dismissAlertById(alert.id);
+    }
   }
 
   void _subscribeToRosBridgeStreams() {
@@ -431,10 +495,29 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
           if (op == "publish" && topic == "/immobility_alert") {
             final msg = decoded["msg"] as Map<String, dynamic>;
-            final String alertText =
-                msg["message"] as String? ?? msg.toString();
+            final rawData = msg["data"];
+            Map<String, dynamic> alertData = {};
+            if (rawData is String && rawData.isNotEmpty) {
+              try {
+                alertData = jsonDecode(rawData) as Map<String, dynamic>;
+              } catch (e) {
+                developer.log(_debugLine('23', '[ALERT_PARSE_ERROR] $e'));
+                alertData = {'message': rawData};
+              }
+            } else if (rawData is Map<String, dynamic>) {
+              alertData = rawData;
+            }
+
+            final alertType = alertData['alert_type']?.toString() ?? 'alert';
             setState(() {
-              _immobilityAlert = alertText;
+              _alerts.insert(
+                0,
+                _AlertItem(
+                  id: '${alertType}_${_alertCounter++}',
+                  type: alertType,
+                  details: alertData,
+                ),
+              );
             });
             return;
           }
@@ -448,7 +531,9 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
             _audioPipeline = _audioPipeline
                 .then((_) => _handleAudioMessage(decoded))
                 .catchError((error) {
-                  developer.log(_debugLine('34', '[AUDIO_PIPELINE_ERROR] $error'));
+                  developer.log(
+                    _debugLine('34', '[AUDIO_PIPELINE_ERROR] $error'),
+                  );
                 });
             return;
           }
@@ -649,33 +734,52 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                 ),
               ),
             ),
-            if (_immobilityAlert != null) ...[
+            if (_alerts.isNotEmpty) ...[
               const SizedBox(height: 10),
-              Card(
-                color: Colors.red.shade900,
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.priority_high, color: Colors.white),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _immobilityAlert!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
+              SizedBox(
+                height: 78,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _alerts.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (context, index) {
+                    final alert = _alerts[index];
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => _showAlertDetails(alert),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade900,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.red.shade300),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.priority_high,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                alert.type,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        tooltip: 'Dismiss alert',
-                        onPressed: _dismissImmobilityAlert,
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -696,7 +800,10 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                     children: [
                       IconButton(
                         iconSize: 64,
-                        icon: const Icon(Icons.arrow_circle_left, color: Colors.blue),
+                        icon: const Icon(
+                          Icons.arrow_circle_left,
+                          color: Colors.blue,
+                        ),
                         onPressed: _isConnected
                             ? () => _sendTwistCommand(0.0, 1.0)
                             : null,
@@ -711,7 +818,10 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                       const SizedBox(width: 16),
                       IconButton(
                         iconSize: 64,
-                        icon: const Icon(Icons.arrow_circle_right, color: Colors.blue),
+                        icon: const Icon(
+                          Icons.arrow_circle_right,
+                          color: Colors.blue,
+                        ),
                         onPressed: _isConnected
                             ? () => _sendTwistCommand(0.0, -1.0)
                             : null,
@@ -720,7 +830,10 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                   ),
                   IconButton(
                     iconSize: 64,
-                    icon: const Icon(Icons.arrow_circle_down, color: Colors.blue),
+                    icon: const Icon(
+                      Icons.arrow_circle_down,
+                      color: Colors.blue,
+                    ),
                     onPressed: _isConnected
                         ? () => _sendTwistCommand(-1.0, 0.0)
                         : null,
