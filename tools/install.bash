@@ -8,8 +8,8 @@ sudo_cmd() {
 }
 
 # 1. Update system package index first
-apt_cmd update -y
-apt_cmd upgrade -y
+sudo_cmd apt update -y
+sudo_cmd apt upgrade -y
 
 # ensure correct permissions
 sudo_cmd usermod -aG dialout $USER
@@ -17,9 +17,9 @@ sudo_cmd usermod -aG video $USER
 
 
 # 2. Install fundamental system, audio, and Python utilities
-apt_cmd install python-is-python3 python3-pip python3-venv alsa-utils -y
-apt_cmd install ros-jazzy-rosbridge-suite -y
-apt_cmd install alsa-utils -y
+sudo_cmd apt install python-is-python3 python3-pip python3-venv alsa-utils -y
+sudo_cmd apt install ros-jazzy-rosbridge-suite -y
+sudo_cmd apt install alsa-utils -y
 sudo_cmd apt install screen
 
 # 3. Resolve ROS workspace package dependencies via rosdep
