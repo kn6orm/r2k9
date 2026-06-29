@@ -558,6 +558,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
             final alertType = alertData['alert_type']?.toString() ?? 'alert';
             setState(() {
+              _alerts.removeWhere((alert) => alert.type == alertType);
               _alerts.insert(
                 0,
                 _AlertItem(
@@ -813,55 +814,58 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                 ),
               ),
             ),
-            if (_alerts.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 78,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _alerts.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
-                  itemBuilder: (context, index) {
-                    final alert = _alerts[index];
-                    return Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: () => _showAlertDetails(alert),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade900,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.red.shade300),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.priority_high,
-                                color: Colors.white,
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 48,
+              child: _alerts.isEmpty
+                  ? const SizedBox.shrink()
+                  : ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _alerts.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        final alert = _alerts[index];
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: () => _showAlertDetails(alert),
+                            child: Container(
+                              height: 40,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
                               ),
-                              const SizedBox(width: 10),
-                              Text(
-                                alert.type,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade900,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.red.shade300),
                               ),
-                            ],
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.priority_high,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    alert.type,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+                        );
+                      },
+                    ),
+            ),
             const SizedBox(height: 16),
             const Divider(height: 30),
             Center(
