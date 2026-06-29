@@ -8,9 +8,14 @@ cd # change to home dir
 source /opt/ros/jazzy/setup.bash
 
 # Navigate to your workspace directory
-rm -rf r2k9
-git clone https://github.com/kn6orm/r2k9.git
-cd r2k9
+if [ -d r2k9 ]; then
+	cd r2k9
+	git checkout r2k9
+	git pull origin r2k9
+else
+	git clone -b r2k9 https://github.com/kn6orm/r2k9.git
+	cd r2k9
+fi
 
 # 2. Compile the ROS workspace
 cd ros

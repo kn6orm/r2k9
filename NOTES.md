@@ -92,3 +92,44 @@ sudo usermod -aG video $USER
 
 sudo apt install screen
 
+## R2K9 User
+
+sudo adduser r2k9
+sudo usermod -aG sudo,dialout,video,plugdev r2k9
+
+```
+
+export ROS_DOMAIN_ID=5
+
+source /opt/ros/jazzy/setup.bash
+
+alias upd="sudo apt update -y ; sudo apt upgrade -y"
+alias lsip="sudo nmap -sn 192.168.86.0/24"
+
+export FLUTTER="$HOME/src/flutter"
+export PATH="$PATH:$FLUTTER/bin"
+
+
+alias lsdev="nmap -sn 192.168.86.0/24"
+alias lslocal="sudo arp-scan --interface=enp24s0 192.168.73.0/24"
+
+export XLANG_TRANSLATION_KEY="AIzaSyA4eWoXWWX9Yqh2bkoIZmoRkMj_W4mHknA"
+
+export CCACHE_DIR=$HOME/ccache
+alias r2b="colcon build --symlink-install"
+alias r2i="source install/setup.bash"
+alias r2l="screen -LdmS r2k9_robot ros2 launch r2k9_robot r2k9.launch.py"
+alias r2v="ros2 run rqt_image_view rqt_image_view"
+
+export VISUAL=vi
+```
+
+
+
+```
+git clone -b r2k9 https://github.com/kn6orm/r2k9.git
+cd r2k9/ros/
+colcon build
+source install/setup.bash
+screen -LdmS r2k9_robot ros2 launch r2k9_robot r2k9.launch.py
+```
