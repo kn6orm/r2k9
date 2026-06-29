@@ -56,7 +56,8 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
   List<Map<String, String>> _savedServers = [];
 
-  Uint8List? _latestVideoFrame;
+  final ValueNotifier<Uint8List?> _videoFrameNotifier =
+      ValueNotifier<Uint8List?>(null);
   int _videoFrameCounter = 0;
   int _framesSinceLog = 0;
   late DateTime _lastLogTime;
@@ -87,6 +88,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   void dispose() {
     _hostnameController.dispose();
     _closeConnection();
+    _videoFrameNotifier.dispose();
     unawaited(_shutdownAudioPlayer());
     super.dispose();
   }
@@ -364,6 +366,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
       _audioChunkCounter = 0;
       _audioChunksSinceLog = 0;
     });
+    _videoFrameNotifier.value = null;
   }
 
   void _sendTwistCommand(double linearX, double angularZ) {
@@ -539,7 +542,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
           }
 
           if (op == "publish" && topic == "/camera/web") {
-            if (mounted) {
+            if (mounted && _rosBridgeStatus != "Receiving /camera/web") {
               setState(() {
                 _rosBridgeStatus = "Receiving /camera/web";
               });
@@ -563,9 +566,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
             if (frameData == null || frameData.isEmpty) return;
 
-            setState(() {
-              _latestVideoFrame = frameData;
-            });
+            _videoFrameNotifier.value = frameData;
 
             final now = DateTime.now();
             if (now.difference(_lastLogTime).inSeconds >= 5) {
@@ -676,9 +677,11 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                   SizedBox(
                     width: double.infinity,
                     height: 220,
-                    child: _latestVideoFrame != null
-                        ? Image.memory(_latestVideoFrame!, fit: BoxFit.contain)
-                        : Column(
+                    child: ValueListenableBuilder<Uint8List?>(
+                      valueListenable: _videoFrameNotifier,
+                      builder: (context, frame, _) {
+                        if (frame == null) {
+                          return Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
@@ -695,7 +698,17 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                                 ),
                               ),
                             ],
-                          ),
+                          );
+                        }
+
+                        return Image.memory(
+                          frame,
+                          fit: BoxFit.contain,
+                          gaplessPlayback: true,
+                          filterQuality: FilterQuality.low,
+                        );
+                      },
+                    ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
