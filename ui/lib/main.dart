@@ -226,6 +226,12 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
     await _audioPlayer.feedF32FromStream([samples]);
     _pulseAudioLight();
+    developer.log(
+      _debugLine(
+        '35',
+        '[AUDIO_CHUNK] bytes=${frameBytes.lengthInBytes} sampleRate=$sampleRate channels=$channels',
+      ),
+    );
 
     _audioChunkCounter++;
     _audioChunksSinceLog++;
@@ -233,18 +239,14 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     if (now.difference(_lastAudioLogTime).inSeconds >= 5) {
       final rate =
           _audioChunksSinceLog / now.difference(_lastAudioLogTime).inSeconds;
-      if (mounted) {
-        setState(() {
-          _audioStats =
-              '${rate.toStringAsFixed(1)} chunks/s (chunk $_audioChunkCounter)';
-        });
-      }
+      _audioStats =
+          '${rate.toStringAsFixed(1)} chunks/s (chunk $_audioChunkCounter)';
+      developer.log(_debugLine('36', '[AUDIO_STATS] $_audioStats'));
       _audioChunksSinceLog = 0;
       _lastAudioLogTime = now;
-    } else if (mounted && _audioStats == 'No audio') {
-      setState(() {
-        _audioStats = 'Receiving /audio/web';
-      });
+    } else if (_audioStats == 'No audio') {
+      _audioStats = 'Receiving /audio/web';
+      developer.log(_debugLine('37', '[AUDIO_STATUS] $_audioStats'));
     }
   }
 
@@ -558,6 +560,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
             final alertType = alertData['alert_type']?.toString() ?? 'alert';
             setState(() {
+              _alerts.removeWhere((alert) => alert.type == alertType);
               _alerts.insert(
                 0,
                 _AlertItem(
@@ -791,77 +794,58 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
               ),
             ),
             const SizedBox(height: 10),
-            Card(
-              color: Colors.grey.shade900,
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Row(
-                  children: [
-                    const Icon(Icons.graphic_eq, color: Colors.orangeAccent),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Audio: $_audioStats',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.orangeAccent,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 48,
+              child: _alerts.isEmpty
+                  ? const SizedBox.shrink()
+                  : ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _alerts.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        final alert = _alerts[index];
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: () => _showAlertDetails(alert),
+                            child: Container(
+                              height: 40,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade900,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.red.shade300),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.priority_high,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    alert.type,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  ],
-                ),
-              ),
             ),
-            if (_alerts.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 78,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _alerts.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10),
-                  itemBuilder: (context, index) {
-                    final alert = _alerts[index];
-                    return Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: () => _showAlertDetails(alert),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade900,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.red.shade300),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.priority_high,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                alert.type,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
             const SizedBox(height: 16),
             const Divider(height: 30),
             Center(
