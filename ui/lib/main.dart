@@ -56,7 +56,8 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
   List<Map<String, String>> _savedServers = [];
 
-  Uint8List? _latestVideoFrame;
+  final ValueNotifier<Uint8List?> _videoFrameNotifier =
+      ValueNotifier<Uint8List?>(null);
   int _videoFrameCounter = 0;
   int _framesSinceLog = 0;
   late DateTime _lastLogTime;
@@ -71,6 +72,10 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   String _audioStats = "No audio";
   bool _audioPlayerOpened = false;
   Future<void> _audioPipeline = Future.value();
+  final ValueNotifier<bool> _videoPulseNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _audioPulseNotifier = ValueNotifier<bool>(false);
+  Timer? _videoPulseTimer;
+  Timer? _audioPulseTimer;
 
   @override
   void initState() {
@@ -87,6 +92,11 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   void dispose() {
     _hostnameController.dispose();
     _closeConnection();
+    _videoPulseTimer?.cancel();
+    _audioPulseTimer?.cancel();
+    _videoPulseNotifier.dispose();
+    _audioPulseNotifier.dispose();
+    _videoFrameNotifier.dispose();
     unawaited(_shutdownAudioPlayer());
     super.dispose();
   }
@@ -215,6 +225,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     if (samples.isEmpty) return;
 
     await _audioPlayer.feedF32FromStream([samples]);
+    _pulseAudioLight();
 
     _audioChunkCounter++;
     _audioChunksSinceLog++;
@@ -364,6 +375,11 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
       _audioChunkCounter = 0;
       _audioChunksSinceLog = 0;
     });
+    _videoPulseTimer?.cancel();
+    _audioPulseTimer?.cancel();
+    _videoPulseNotifier.value = false;
+    _audioPulseNotifier.value = false;
+    _videoFrameNotifier.value = null;
   }
 
   void _sendTwistCommand(double linearX, double angularZ) {
@@ -381,6 +397,38 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   }
 
   void _sendStopCommand() => _sendTwistCommand(0.0, 0.0);
+
+  void _pulseVideoLight() {
+    _videoPulseTimer?.cancel();
+    _videoPulseNotifier.value = true;
+    _videoPulseTimer = Timer(const Duration(milliseconds: 140), () {
+      _videoPulseNotifier.value = false;
+    });
+  }
+
+  void _pulseAudioLight() {
+    _audioPulseTimer?.cancel();
+    _audioPulseNotifier.value = true;
+    _audioPulseTimer = Timer(const Duration(milliseconds: 140), () {
+      _audioPulseNotifier.value = false;
+    });
+  }
+
+  Widget _buildActivityLight(bool isOn, Color color) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isOn ? color : Colors.white24,
+        border: Border.all(color: isOn ? color : Colors.white38, width: 1),
+        boxShadow: isOn
+            ? [BoxShadow(color: color, blurRadius: 8, spreadRadius: 0.5)]
+            : null,
+      ),
+    );
+  }
 
   void _dismissImmobilityAlert() {
     setState(() {
@@ -539,7 +587,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
           }
 
           if (op == "publish" && topic == "/camera/web") {
-            if (mounted) {
+            if (mounted && _rosBridgeStatus != "Receiving /camera/web") {
               setState(() {
                 _rosBridgeStatus = "Receiving /camera/web";
               });
@@ -563,9 +611,8 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
             if (frameData == null || frameData.isEmpty) return;
 
-            setState(() {
-              _latestVideoFrame = frameData;
-            });
+            _videoFrameNotifier.value = frameData;
+            _pulseVideoLight();
 
             final now = DateTime.now();
             if (now.difference(_lastLogTime).inSeconds >= 5) {
@@ -652,21 +699,41 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
         child: Column(
           children: [
             const SizedBox(height: 10),
-            Text(
-              _connectionStatus,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: _isConnected ? Colors.green : Colors.orange,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _rosBridgeStatus,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.cyan,
-                fontFamily: 'monospace',
-              ),
+            AnimatedBuilder(
+              animation: Listenable.merge([
+                _videoPulseNotifier,
+                _audioPulseNotifier,
+              ]),
+              builder: (context, _) {
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '$_currentServerName: ',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const Text(
+                      'video:',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    const SizedBox(width: 4),
+                    _buildActivityLight(_videoPulseNotifier.value, Colors.blue),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'audio:',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    const SizedBox(width: 4),
+                    _buildActivityLight(
+                      _audioPulseNotifier.value,
+                      Colors.yellow,
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 16),
             Card(
@@ -676,9 +743,11 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                   SizedBox(
                     width: double.infinity,
                     height: 220,
-                    child: _latestVideoFrame != null
-                        ? Image.memory(_latestVideoFrame!, fit: BoxFit.contain)
-                        : Column(
+                    child: ValueListenableBuilder<Uint8List?>(
+                      valueListenable: _videoFrameNotifier,
+                      builder: (context, frame, _) {
+                        if (frame == null) {
+                          return Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
@@ -695,7 +764,17 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                                 ),
                               ),
                             ],
-                          ),
+                          );
+                        }
+
+                        return Image.memory(
+                          frame,
+                          fit: BoxFit.contain,
+                          gaplessPlayback: true,
+                          filterQuality: FilterQuality.low,
+                        );
+                      },
+                    ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
