@@ -226,6 +226,12 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
     await _audioPlayer.feedF32FromStream([samples]);
     _pulseAudioLight();
+    developer.log(
+      _debugLine(
+        '35',
+        '[AUDIO_CHUNK] bytes=${frameBytes.lengthInBytes} sampleRate=$sampleRate channels=$channels',
+      ),
+    );
 
     _audioChunkCounter++;
     _audioChunksSinceLog++;
@@ -233,18 +239,14 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     if (now.difference(_lastAudioLogTime).inSeconds >= 5) {
       final rate =
           _audioChunksSinceLog / now.difference(_lastAudioLogTime).inSeconds;
-      if (mounted) {
-        setState(() {
-          _audioStats =
-              '${rate.toStringAsFixed(1)} chunks/s (chunk $_audioChunkCounter)';
-        });
-      }
+      _audioStats =
+          '${rate.toStringAsFixed(1)} chunks/s (chunk $_audioChunkCounter)';
+      developer.log(_debugLine('36', '[AUDIO_STATS] $_audioStats'));
       _audioChunksSinceLog = 0;
       _lastAudioLogTime = now;
-    } else if (mounted && _audioStats == 'No audio') {
-      setState(() {
-        _audioStats = 'Receiving /audio/web';
-      });
+    } else if (_audioStats == 'No audio') {
+      _audioStats = 'Receiving /audio/web';
+      developer.log(_debugLine('37', '[AUDIO_STATUS] $_audioStats'));
     }
   }
 
@@ -792,28 +794,6 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
               ),
             ),
             const SizedBox(height: 10),
-            Card(
-              color: Colors.grey.shade900,
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Row(
-                  children: [
-                    const Icon(Icons.graphic_eq, color: Colors.orangeAccent),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Audio: $_audioStats',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.orangeAccent,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
             const SizedBox(height: 10),
             SizedBox(
               height: 48,
