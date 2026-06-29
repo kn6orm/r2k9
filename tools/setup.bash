@@ -22,5 +22,13 @@ cd ros
 colcon build --symlink-install
 source install/setup.bash
 
-# 3. Launch the robot inside a detached screen session named "r2k9_robot"
-screen -LdmS r2k9_robot ros2 launch r2k9_robot r2k9.launch.py
+
+CURRENT_USER=$(whoami)
+
+# Check if the user is r2k9
+if [ "$CURRENT_USER" = "r2k9" ]; then
+    r2k9_robot ros2 launch r2k9_robot r2k9.launch.py
+else
+    screen -LdmS r2k9_robot ros2 launch r2k9_robot r2k9.launch.py
+fi
+

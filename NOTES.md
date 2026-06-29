@@ -107,8 +107,7 @@ alias upd="sudo apt update -y ; sudo apt upgrade -y"
 alias lsip="sudo nmap -sn 192.168.86.0/24"
 
 export FLUTTER="$HOME/src/flutter"
-export PATH="$PATH:$FLUTTER/bin"
-
+export PATH="$PATH:$HOME/bin:$FLUTTER/bin"
 
 alias lsdev="nmap -sn 192.168.86.0/24"
 alias lslocal="sudo arp-scan --interface=enp24s0 192.168.73.0/24"
