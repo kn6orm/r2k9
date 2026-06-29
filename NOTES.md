@@ -112,8 +112,6 @@ export PATH="$PATH:$HOME/bin:$FLUTTER/bin"
 alias lsdev="nmap -sn 192.168.86.0/24"
 alias lslocal="sudo arp-scan --interface=enp24s0 192.168.73.0/24"
 
-export XLANG_TRANSLATION_KEY="AIzaSyA4eWoXWWX9Yqh2bkoIZmoRkMj_W4mHknA"
-
 export CCACHE_DIR=$HOME/ccache
 alias r2b="colcon build --symlink-install"
 alias r2i="source install/setup.bash"
