@@ -130,3 +130,9 @@ colcon build
 source install/setup.bash
 screen -LdmS r2k9_robot ros2 launch r2k9_robot r2k9.launch.py
 ```
+
+
+```
+ros2 launch kobuki kobuki.launch.py
+```
+
