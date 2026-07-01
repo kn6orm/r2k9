@@ -92,8 +92,19 @@ ros2 launch r2k9_robot r2k9.launch.py
 
 ## Development
 
-The password is `r2k9`
+The default password is `r2k9`
 
+
+## Docker
+
+Run R2K9 on any OS via Docker:
+```
+docker build -t r2k9-local:latest .
+```
+
+```
+
+```
 ## TODO
 
 Look into using Zenoh instead of webhooks.

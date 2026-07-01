@@ -28,6 +28,8 @@ rosdep install --from-paths src --ignore-src -r -y
 
 # 4. Install Ultralytics and its sub-dependencies safely without altering NumPy
 pip install ultralytics --no-deps --break-system-packages
+pip install torch torchvision --break-system-package
+
 pip install "matplotlib>=3.3.0" "nvidia-ml-py>=12.0.0" "polars>=0.20.0" "ultralytics-thop>=2.0.18" --break-system-packages
 
 # 5. Build and source the workspace
