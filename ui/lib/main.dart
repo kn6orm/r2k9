@@ -76,6 +76,9 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   final ValueNotifier<bool> _audioPulseNotifier = ValueNotifier<bool>(false);
   Timer? _videoPulseTimer;
   Timer? _audioPulseTimer;
+  Timer? _dpadHoldTimer;
+  double _linearCommandMagnitude = 0.25;
+  double _angularCommandMagnitude = 1.0;
 
   @override
   void initState() {
@@ -90,6 +93,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
   @override
   void dispose() {
+    _stopDpadHold(sendStopCommand: false);
     _hostnameController.dispose();
     _closeConnection();
     _videoPulseTimer?.cancel();
@@ -106,6 +110,12 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     final text = 'D$id $message';
     if (text.length <= maxLineLength) return text;
     return '${text.substring(0, maxLineLength - 3)}...';
+  }
+
+  void _logLine(String id, String message) {
+    final line = _debugLine(id, message);
+    developer.log(line);
+    debugPrint(line);
   }
 
   Future<void> _loadSavedServers() async {
@@ -350,6 +360,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
   void _closeConnection() {
     developer.log(_debugLine('06', '[FLUTTER_DISCONNECT] Closing connection'));
+    _stopDpadHold(sendStopCommand: false);
     _sendStopCommand();
     if (_channel != null) {
       _channel!.sink.add(
@@ -385,7 +396,13 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   }
 
   void _sendTwistCommand(double linearX, double angularZ) {
-    if (!_isConnected || _channel == null) return;
+    if (!_isConnected || _channel == null) {
+      _logLine(
+        '40',
+        '[CMD_VEL_SKIPPED] not connected linear_x=$linearX angular_z=$angularZ',
+      );
+      return;
+    }
     final Map<String, dynamic> rosbridgeMessage = {
       "op": "publish",
       "topic": "/cmd_vel",
@@ -395,10 +412,60 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
         "angular": {"x": 0.0, "y": 0.0, "z": angularZ},
       },
     };
+    _logLine('41', '[CMD_VEL_SENT] ${jsonEncode(rosbridgeMessage)}');
     _channel!.sink.add(jsonEncode(rosbridgeMessage));
   }
 
   void _sendStopCommand() => _sendTwistCommand(0.0, 0.0);
+
+  void _startDpadHold(double linearX, double angularZ) {
+    if (!_isConnected) return;
+    _sendTwistCommand(linearX, angularZ);
+    _dpadHoldTimer?.cancel();
+    _dpadHoldTimer = Timer.periodic(const Duration(milliseconds: 400), (_) {
+      _sendTwistCommand(linearX, angularZ);
+    });
+  }
+
+  void _stopDpadHold({bool sendStopCommand = true}) {
+    _dpadHoldTimer?.cancel();
+    _dpadHoldTimer = null;
+    if (sendStopCommand && _isConnected) {
+      _sendStopCommand();
+    }
+  }
+
+  Widget _buildHoldDpadButton({
+    required IconData icon,
+    required Color activeColor,
+    required double linearX,
+    required double angularZ,
+    String? tooltip,
+  }) {
+    final isEnabled = _isConnected;
+    final button = Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: isEnabled
+          ? (_) => _startDpadHold(linearX, angularZ)
+          : null,
+      onPointerUp: isEnabled ? (_) => _stopDpadHold() : null,
+      onPointerCancel: isEnabled ? (_) => _stopDpadHold() : null,
+      child: SizedBox(
+        width: 80,
+        height: 80,
+        child: Center(
+          child: Icon(
+            icon,
+            size: 64,
+            color: isEnabled ? activeColor : Colors.white24,
+          ),
+        ),
+      ),
+    );
+
+    if (tooltip == null) return button;
+    return Tooltip(message: tooltip, child: button);
+  }
 
   void _pulseVideoLight() {
     _videoPulseTimer?.cancel();
@@ -851,25 +918,20 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
             Center(
               child: Column(
                 children: [
-                  IconButton(
-                    iconSize: 64,
-                    icon: const Icon(Icons.arrow_circle_up, color: Colors.blue),
-                    onPressed: _isConnected
-                        ? () => _sendTwistCommand(1.0, 0.0)
-                        : null,
+                  _buildHoldDpadButton(
+                    icon: Icons.arrow_circle_up,
+                    activeColor: Colors.blue,
+                    linearX: _linearCommandMagnitude,
+                    angularZ: 0.0,
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      IconButton(
-                        iconSize: 64,
-                        icon: const Icon(
-                          Icons.arrow_circle_left,
-                          color: Colors.blue,
-                        ),
-                        onPressed: _isConnected
-                            ? () => _sendTwistCommand(0.0, 1.0)
-                            : null,
+                      _buildHoldDpadButton(
+                        icon: Icons.arrow_circle_left,
+                        activeColor: Colors.blue,
+                        linearX: 0.0,
+                        angularZ: _angularCommandMagnitude,
                       ),
                       const SizedBox(width: 16),
                       IconButton(
@@ -879,27 +941,19 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                         tooltip: 'Stop (zero velocity)',
                       ),
                       const SizedBox(width: 16),
-                      IconButton(
-                        iconSize: 64,
-                        icon: const Icon(
-                          Icons.arrow_circle_right,
-                          color: Colors.blue,
-                        ),
-                        onPressed: _isConnected
-                            ? () => _sendTwistCommand(0.0, -1.0)
-                            : null,
+                      _buildHoldDpadButton(
+                        icon: Icons.arrow_circle_right,
+                        activeColor: Colors.blue,
+                        linearX: 0.0,
+                        angularZ: -_angularCommandMagnitude,
                       ),
                     ],
                   ),
-                  IconButton(
-                    iconSize: 64,
-                    icon: const Icon(
-                      Icons.arrow_circle_down,
-                      color: Colors.blue,
-                    ),
-                    onPressed: _isConnected
-                        ? () => _sendTwistCommand(-1.0, 0.0)
-                        : null,
+                  _buildHoldDpadButton(
+                    icon: Icons.arrow_circle_down,
+                    activeColor: Colors.blue,
+                    linearX: -_linearCommandMagnitude,
+                    angularZ: 0.0,
                   ),
                 ],
               ),
