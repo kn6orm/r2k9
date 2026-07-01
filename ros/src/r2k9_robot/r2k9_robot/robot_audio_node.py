@@ -106,7 +106,9 @@ class RobotAudioNode(Node):
                 self.get_logger().warn(
                     '[AUDIO_CAPTURE] Audio capture ended unexpectedly; restarting in 1 second'
                 )
-                time.sleep(1.0)
+                # TODO get audio working
+                #time.sleep(1.0)
+                break
             except FileNotFoundError:
                 self.get_logger().error(
                     '[AUDIO_ERROR] arecord was not found. Install alsa-utils on the robot.'
