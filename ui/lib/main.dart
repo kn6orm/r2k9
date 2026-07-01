@@ -76,6 +76,9 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   final ValueNotifier<bool> _audioPulseNotifier = ValueNotifier<bool>(false);
   Timer? _videoPulseTimer;
   Timer? _audioPulseTimer;
+  Timer? _cmdVelRepeatTimer;
+  double _linearXVelocity = 0.2;
+  double _angularZVelocity = 1.0;
 
   @override
   void initState() {
@@ -91,6 +94,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   @override
   void dispose() {
     _hostnameController.dispose();
+    _stopContinuousTwistCommand(sendStop: false);
     _closeConnection();
     _videoPulseTimer?.cancel();
     _audioPulseTimer?.cancel();
@@ -350,6 +354,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
 
   void _closeConnection() {
     developer.log(_debugLine('06', '[FLUTTER_DISCONNECT] Closing connection'));
+    _stopContinuousTwistCommand(sendStop: false);
     _sendStopCommand();
     if (_channel != null) {
       _channel!.sink.add(
@@ -399,6 +404,44 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   }
 
   void _sendStopCommand() => _sendTwistCommand(0.0, 0.0);
+
+  void _startContinuousTwistCommand(double linearX, double angularZ) {
+    if (!_isConnected) return;
+
+    _cmdVelRepeatTimer?.cancel();
+    _sendTwistCommand(linearX, angularZ);
+    _cmdVelRepeatTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
+      _sendTwistCommand(linearX, angularZ);
+    });
+  }
+
+  void _stopContinuousTwistCommand({bool sendStop = true}) {
+    _cmdVelRepeatTimer?.cancel();
+    _cmdVelRepeatTimer = null;
+    if (sendStop) {
+      _sendStopCommand();
+    }
+  }
+
+  Widget _buildDirectionalButton({
+    required IconData icon,
+    required double linearX,
+    required double angularZ,
+  }) {
+    final enabled = _isConnected;
+    return GestureDetector(
+      onTapDown: enabled
+          ? (_) => _startContinuousTwistCommand(linearX, angularZ)
+          : null,
+      onTapUp: enabled ? (_) => _stopContinuousTwistCommand() : null,
+      onTapCancel: enabled ? () => _stopContinuousTwistCommand() : null,
+      child: Icon(
+        icon,
+        size: 64,
+        color: enabled ? Colors.blue : Colors.grey,
+      ),
+    );
+  }
 
   void _pulseVideoLight() {
     _videoPulseTimer?.cancel();
@@ -851,55 +894,43 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
             Center(
               child: Column(
                 children: [
-                  IconButton(
-                    iconSize: 64,
-                    icon: const Icon(Icons.arrow_circle_up, color: Colors.blue),
-                    onPressed: _isConnected
-                        ? () => _sendTwistCommand(1.0, 0.0)
-                        : null,
+                  _buildDirectionalButton(
+                    icon: Icons.arrow_circle_up,
+                    linearX: _linearXVelocity,
+                    angularZ: 0.0,
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      IconButton(
-                        iconSize: 64,
-                        icon: const Icon(
-                          Icons.arrow_circle_left,
-                          color: Colors.blue,
-                        ),
-                        onPressed: _isConnected
-                            ? () => _sendTwistCommand(0.0, 1.0)
-                            : null,
+                      _buildDirectionalButton(
+                        icon: Icons.arrow_circle_left,
+                        linearX: 0.0,
+                        angularZ: _angularZVelocity,
                       ),
                       const SizedBox(width: 16),
                       IconButton(
                         iconSize: 64,
                         icon: const Icon(Icons.stop_circle, color: Colors.red),
-                        onPressed: _isConnected ? _sendStopCommand : null,
+                        onPressed: _isConnected
+                            ? () {
+                                _stopContinuousTwistCommand(sendStop: false);
+                                _sendStopCommand();
+                              }
+                            : null,
                         tooltip: 'Stop (zero velocity)',
                       ),
                       const SizedBox(width: 16),
-                      IconButton(
-                        iconSize: 64,
-                        icon: const Icon(
-                          Icons.arrow_circle_right,
-                          color: Colors.blue,
-                        ),
-                        onPressed: _isConnected
-                            ? () => _sendTwistCommand(0.0, -1.0)
-                            : null,
+                      _buildDirectionalButton(
+                        icon: Icons.arrow_circle_right,
+                        linearX: 0.0,
+                        angularZ: -_angularZVelocity,
                       ),
                     ],
                   ),
-                  IconButton(
-                    iconSize: 64,
-                    icon: const Icon(
-                      Icons.arrow_circle_down,
-                      color: Colors.blue,
-                    ),
-                    onPressed: _isConnected
-                        ? () => _sendTwistCommand(-1.0, 0.0)
-                        : null,
+                  _buildDirectionalButton(
+                    icon: Icons.arrow_circle_down,
+                    linearX: -_linearXVelocity,
+                    angularZ: 0.0,
                   ),
                 ],
               ),
