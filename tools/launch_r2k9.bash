@@ -1,6 +1,13 @@
 #!/bin/bash
 
-set -ev
+set -euv
+
+# Fail fast under systemd instead of blocking on git or ssh prompts.
+export GIT_TERMINAL_PROMPT=0
+export GIT_ASKPASS=/bin/false
+export SSH_ASKPASS=/bin/false
+export GCM_INTERACTIVE=never
+export GIT_SSH_COMMAND='ssh -oBatchMode=yes -oStrictHostKeyChecking=accept-new'
 
 cd # change to home dir
 
