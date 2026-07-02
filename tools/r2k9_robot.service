@@ -1,0 +1,17 @@
+[Unit]
+Description=Automate R2K9 Robot Startup Service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=r2k9
+WorkingDirectory=/home/r2k9
+ExecStart=/home/r2k9/bin/launch_r2k9.bash
+Restart=on-failure
+# Give network connections a small 5-second buffer window before trying a restart
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+
