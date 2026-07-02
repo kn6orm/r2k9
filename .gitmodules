@@ -4,9 +4,6 @@
 [submodule "ros/src/aws-robomaker-bookstore-world"]
 	path = ros/src/aws-robomaker-bookstore-world
 	url = https://github.com/Juancams/aws-robomaker-bookstore-world.git
-[submodule "ros/src/aws-robomaker-racetrack-world"]
-	path = ros/src/aws-robomaker-racetrack-world
-	url = https://github.com/Juancams/aws-robomaker-racetrack-world.git
 [submodule "ros/src/aws-robomaker-small-warehouse-world"]
 	path = ros/src/aws-robomaker-small-warehouse-world
 	url = https://github.com/Juancams/aws-robomaker-small-warehouse-world.git
