@@ -153,5 +153,6 @@ git submodule add https://github.com/Juancams/rplidar_ros.git
 
 
 touch src/aws_robomaker_bookstore_world/COLCON_IGNORE
+touch src/aws-robomaker-racetrack-world/COLCON_IGNORE
 colcon build --symlink-install --packages-select ecl_streams --cmake-args -DCMAKE_CXX_FLAGS="-Wno-error=overloaded-virtual"
 ```

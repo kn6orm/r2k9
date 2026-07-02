@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ev
 
 cd # change to home dir
 
@@ -19,7 +19,14 @@ fi
 
 # 2. Compile the ROS workspace
 cd ros
-colcon build --symlink-install
+git submodule update --init --recursive
+touch src/aws_robomaker_bookstore_world/COLCON_IGNORE
+touch src/aws-robomaker-racetrack-world/COLCON_IGNORE
+touch src/rplidar_ros/COLCON_IGNORE
+colcon build --symlink-install --cmake-args -DCMAKE_CXX_FLAGS="-Wno-error=overloaded-virtual"
+rm src/aws_robomaker_bookstore_world/COLCON_IGNORE
+rm src/aws-robomaker-racetrack-world/COLCON_IGNORE
+rm src/rplidar_ros/COLCON_IGNORE
 source install/setup.bash
 
 
