@@ -33,6 +33,7 @@ source install/setup.bash
 CURRENT_USER=$(whoami)
 
 # Check if the user is r2k9
+screen -LdmS kobuki ros2 launch kobuki kobuki.launch.py
 if [ "$CURRENT_USER" = "r2k9" ]; then
     r2k9_robot ros2 launch r2k9_robot r2k9.launch.py
 else
