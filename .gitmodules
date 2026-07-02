@@ -1,0 +1,24 @@
+[submodule "ros/src/kobuki"]
+	path = ros/src/kobuki
+	url = git@github.com:IntelligentRoboticsLabs/kobuki.git
+[submodule "ros/src/aws-robomaker-small-warehouse-world"]
+	path = ros/src/aws-robomaker-small-warehouse-world
+	url = https://github.com/Juancams/aws-robomaker-small-warehouse-world.git
+[submodule "ros/src/kobuki_core"]
+	path = ros/src/kobuki_core
+	url = https://github.com/kobuki-base/kobuki_core.git
+[submodule "ros/src/kobuki_ros"]
+	path = ros/src/kobuki_ros
+	url = https://github.com/Juancams/kobuki_ros.git
+[submodule "ros/src/openni2_camera"]
+	path = ros/src/openni2_camera
+	url = https://github.com/ros-drivers/openni2_camera.git
+[submodule "ros/src/ros_astra_camera"]
+	path = ros/src/ros_astra_camera
+	url = https://github.com/Juancams/ros_astra_camera.git
+[submodule "ros/src/ecl_core"]
+	path = ros/src/ecl_core
+	url = https://github.com/Juancams/ecl_core.git
+[submodule "ros/src/ecl_lite"]
+	path = ros/src/ecl_lite
+	url = https://github.com/Juancams/ecl_lite.git

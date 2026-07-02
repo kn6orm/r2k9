@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ev
 
 cd # change to home dir
 
@@ -19,15 +19,17 @@ fi
 
 # 2. Compile the ROS workspace
 cd ros
-colcon build --symlink-install
+git submodule update --init --recursive
+colcon build --symlink-install --cmake-args -DCMAKE_CXX_FLAGS="-Wno-error=overloaded-virtual"
 source install/setup.bash
 
 
 CURRENT_USER=$(whoami)
 
 # Check if the user is r2k9
+screen -LdmS kobuki ros2 launch kobuki kobuki.launch.py
 if [ "$CURRENT_USER" = "r2k9" ]; then
-    r2k9_robot ros2 launch r2k9_robot r2k9.launch.py
+    ros2 launch r2k9_robot r2k9.launch.py
 else
     screen -LdmS r2k9_robot ros2 launch r2k9_robot r2k9.launch.py
 fi
