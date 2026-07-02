@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euv
+set -ev
 
 # Fail fast under systemd instead of blocking on git or ssh prompts.
 export GIT_TERMINAL_PROMPT=0
