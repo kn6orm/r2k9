@@ -22,9 +22,6 @@
 [submodule "ros/src/ros_astra_camera"]
 	path = ros/src/ros_astra_camera
 	url = https://github.com/Juancams/ros_astra_camera.git
-[submodule "ros/src/rplidar_ros"]
-	path = ros/src/rplidar_ros
-	url = https://github.com/Juancams/rplidar_ros.git
 [submodule "ros/src/ecl_core"]
 	path = ros/src/ecl_core
 	url = https://github.com/Juancams/ecl_core.git
