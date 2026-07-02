@@ -136,3 +136,22 @@ screen -LdmS r2k9_robot ros2 launch r2k9_robot r2k9.launch.py
 ros2 launch kobuki kobuki.launch.py
 ```
 
+
+# build
+
+```
+git submodule add git@github.com:IntelligentRoboticsLabs/kobuki.git
+#git submodule add https://github.com/Juancams/aws-robomaker-bookstore-world.git
+git submodule add https://github.com/Juancams/aws-robomaker-racetrack-world.git
+git submodule add https://github.com/Juancams/aws-robomaker-small-house-world
+git submodule add https://github.com/Juancams/aws-robomaker-small-warehouse-world.git
+git submodule add https://github.com/kobuki-base/kobuki_core.git
+git submodule add https://github.com/Juancams/kobuki_ros.git
+git submodule add https://github.com/ros-drivers/openni2_camera.git
+git submodule add https://github.com/Juancams/ros_astra_camera.git
+git submodule add https://github.com/Juancams/rplidar_ros.git
+
+
+touch src/aws_robomaker_bookstore_world/COLCON_IGNORE
+colcon build --symlink-install --packages-select ecl_streams --cmake-args -DCMAKE_CXX_FLAGS="-Wno-error=overloaded-virtual"
+```
