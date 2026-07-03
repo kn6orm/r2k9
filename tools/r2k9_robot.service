@@ -1,0 +1,23 @@
+[Unit]
+Description=Automate R2K9 Robot Startup Service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=r2k9
+WorkingDirectory=/home/r2k9
+Environment=HOME=/home/r2k9
+Environment=GIT_TERMINAL_PROMPT=0
+Environment=GIT_ASKPASS=/bin/false
+Environment=SSH_ASKPASS=/bin/false
+Environment=GCM_INTERACTIVE=never
+Environment=GIT_SSH_COMMAND=ssh -i /home/r2k9/.ssh/r2k9_deploy_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/home/r2k9/.ssh/known_hosts
+ExecStart=/home/r2k9/bin/launch_r2k9.bash
+Restart=on-failure
+# Give network connections a small 5-second buffer window before trying a restart
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+
