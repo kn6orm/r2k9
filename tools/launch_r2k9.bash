@@ -2,12 +2,15 @@
 
 set -ev
 
-# Fail fast under systemd instead of blocking on git or ssh prompts.
-export GIT_TERMINAL_PROMPT=0
-export GIT_ASKPASS=/bin/false
-export SSH_ASKPASS=/bin/false
-export GCM_INTERACTIVE=never
-export GIT_SSH_COMMAND='ssh -oBatchMode=yes -oStrictHostKeyChecking=accept-new'
+export R2K9_AUTOMATED=false
+if [ -f "$HOME/.ssh/r2k9_deploy_key" ]; then
+	export R2K9_AUTOMATED=true
+	export GIT_TERMINAL_PROMPT=0
+	export GIT_ASKPASS=/bin/false
+	export SSH_ASKPASS=/bin/false
+	export GCM_INTERACTIVE=never
+	export GIT_SSH_COMMAND='ssh -i $HOME/.ssh/r2k9_deploy_key -oBatchMode=yes -oStrictHostKeyChecking=accept-new'
+fi
 
 cd # change to home dir
 
@@ -30,12 +33,11 @@ git submodule update --init --recursive
 colcon build --symlink-install --cmake-args -DCMAKE_CXX_FLAGS="-Wno-error=overloaded-virtual"
 source install/setup.bash
 
-
-CURRENT_USER=$(whoami)
-
-# Check if the user is r2k9
+# Launch kobuki controller
 screen -LdmS kobuki ros2 launch kobuki kobuki.launch.py
-if [ "$CURRENT_USER" = "r2k9" ]; then
+
+# Launch r2k9_robot directly if in automated mode
+if [ "$R2K9_AUTOMATED" = "true" ]; then
     ros2 launch r2k9_robot r2k9.launch.py
 else
     screen -LdmS r2k9_robot ros2 launch r2k9_robot r2k9.launch.py
