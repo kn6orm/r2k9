@@ -27,16 +27,6 @@ def generate_launch_description():
         default_value='3',
         description='Consecutive read failures before reconnect',
     )
-    vision_input_topic_arg = DeclareLaunchArgument(
-        'vision_input_topic',
-        default_value='/camera/raw',
-        description='Image topic consumed by the vision processor',
-    )
-    vision_model_path_arg = DeclareLaunchArgument(
-        'vision_model_path',
-        default_value='yolov8n.pt',
-        description='Path to YOLO model used by the vision processor',
-    )
     audio_device_arg = DeclareLaunchArgument(
         'audio_device',
         default_value='default',
@@ -63,8 +53,6 @@ def generate_launch_description():
         capture_fps_arg,
         reconnect_interval_arg,
         read_failures_arg,
-        vision_input_topic_arg,
-        vision_model_path_arg,
         audio_device_arg,
         audio_sample_rate_arg,
         audio_channels_arg,
@@ -85,16 +73,6 @@ def generate_launch_description():
                 {'sample_rate': LaunchConfiguration('audio_sample_rate')},
                 {'channels': LaunchConfiguration('audio_channels')},
                 {'chunk_size': LaunchConfiguration('audio_chunk_size')},
-            ],
-        ),
-        Node(
-            package='r2k9_robot',
-            executable='robot_vision_processor',
-            name='robot_vision_processor_node',
-            output='screen',
-            parameters=[
-                {'input_topic': LaunchConfiguration('vision_input_topic')},
-                {'model_path': LaunchConfiguration('vision_model_path')},
             ],
         ),
     ])

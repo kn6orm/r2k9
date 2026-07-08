@@ -17,6 +17,9 @@ def generate_launch_description():
     frame_height_arg = DeclareLaunchArgument(
         'frame_height', default_value='480', description='Camera frame height'
     )
+    capture_fps_arg = DeclareLaunchArgument(
+        'camera_capture_fps', default_value='30.0', description='Camera capture FPS'
+    )
     reconnect_interval_arg = DeclareLaunchArgument(
         'camera_reconnect_interval_sec',
         default_value='1.0',
@@ -26,6 +29,16 @@ def generate_launch_description():
         'camera_read_failures_before_reconnect',
         default_value='3',
         description='Consecutive read failures before reconnect',
+    )
+    vision_input_topic_arg = DeclareLaunchArgument(
+        'vision_input_topic',
+        default_value='/camera/raw',
+        description='Image topic consumed by the vision processor',
+    )
+    vision_model_path_arg = DeclareLaunchArgument(
+        'vision_model_path',
+        default_value='yolov8n.pt',
+        description='Path to YOLO model used by the vision processor',
     )
     audio_device_arg = DeclareLaunchArgument(
         'audio_device',
@@ -57,8 +70,11 @@ def generate_launch_description():
         device_id_arg,
         frame_width_arg,
         frame_height_arg,
+        capture_fps_arg,
         reconnect_interval_arg,
         read_failures_arg,
+        vision_input_topic_arg,
+        vision_model_path_arg,
         audio_device_arg,
         audio_sample_rate_arg,
         audio_channels_arg,
@@ -69,18 +85,6 @@ def generate_launch_description():
             executable='dpad_logger',
             name='dpad_logger_node',
             output='screen',
-        ),
-        Node(
-            package='r2k9_robot',
-            executable='robot_audio',
-            name='robot_audio_node',
-            output='screen',
-            parameters=[
-                {'audio_device': LaunchConfiguration('audio_device')},
-                {'sample_rate': LaunchConfiguration('audio_sample_rate')},
-                {'channels': LaunchConfiguration('audio_channels')},
-                {'chunk_size': LaunchConfiguration('audio_chunk_size')},
-            ],
         ),
         Node(
             package='r2k9_robot',
@@ -101,15 +105,30 @@ def generate_launch_description():
         ),
         Node(
             package='r2k9_robot',
-            executable='robot_vision',
-            name='robot_vision_node',
+            executable='robot_sensor',
+            name='robot_sensor_node',
             output='screen',
             parameters=[
                 {'device_id': LaunchConfiguration('device_id')},
                 {'frame_width': LaunchConfiguration('frame_width')},
                 {'frame_height': LaunchConfiguration('frame_height')},
+                {'capture_fps': LaunchConfiguration('camera_capture_fps')},
                 {'reconnect_interval_sec': LaunchConfiguration('camera_reconnect_interval_sec')},
                 {'read_failures_before_reconnect': LaunchConfiguration('camera_read_failures_before_reconnect')},
+                {'audio_device': LaunchConfiguration('audio_device')},
+                {'sample_rate': LaunchConfiguration('audio_sample_rate')},
+                {'channels': LaunchConfiguration('audio_channels')},
+                {'chunk_size': LaunchConfiguration('audio_chunk_size')},
+            ],
+        ),
+        Node(
+            package='r2k9_robot',
+            executable='robot_vision_processor',
+            name='robot_vision_processor_node',
+            output='screen',
+            parameters=[
+                {'input_topic': LaunchConfiguration('vision_input_topic')},
+                {'model_path': LaunchConfiguration('vision_model_path')},
             ],
         ),
     ])
