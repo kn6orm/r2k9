@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch.launch_description_sources import AnyLaunchDescriptionSource
 from launch_ros.actions import Node
@@ -8,6 +9,16 @@ import os
 
 
 def generate_launch_description():
+    drone_mode_arg = DeclareLaunchArgument(
+        'drone',
+        default_value='false',
+        description='Launch drone-side stack: robot_sensor_node, kobuki_controller_node',
+    )
+    control_mode_arg = DeclareLaunchArgument(
+        'control',
+        default_value='false',
+        description='Launch control-side stack: dpad_logger_node, object_immobility_monitor, robot_vision_processor_node, rosbridge',
+    )
     device_id_arg = DeclareLaunchArgument(
         'device_id', default_value='-1', description='Camera device ID (-1 = auto-scan all)'
     )
@@ -63,10 +74,13 @@ def generate_launch_description():
     rosbridge_launch = IncludeLaunchDescription(
         AnyLaunchDescriptionSource(
             os.path.join(rosbridge_dir, 'launch', 'rosbridge_websocket_launch.xml')
-        )
+        ),
+        condition=IfCondition(LaunchConfiguration('control')),
     )
 
     return LaunchDescription([
+        drone_mode_arg,
+        control_mode_arg,
         device_id_arg,
         frame_width_arg,
         frame_height_arg,
@@ -85,12 +99,14 @@ def generate_launch_description():
             executable='dpad_logger',
             name='dpad_logger_node',
             output='screen',
+            condition=IfCondition(LaunchConfiguration('control')),
         ),
         Node(
             package='r2k9_robot',
             executable='immobility_monitor',
             name='object_immobility_monitor',
             output='screen',
+            condition=IfCondition(LaunchConfiguration('control')),
             arguments=[
                 '--ros-args',
                 '--params-file',
@@ -102,12 +118,14 @@ def generate_launch_description():
             executable='kobuki_controller',
             name='kobuki_controller_node',
             output='screen',
+            condition=IfCondition(LaunchConfiguration('drone')),
         ),
         Node(
             package='r2k9_robot',
             executable='robot_sensor',
             name='robot_sensor_node',
             output='screen',
+            condition=IfCondition(LaunchConfiguration('drone')),
             parameters=[
                 {'device_id': LaunchConfiguration('device_id')},
                 {'frame_width': LaunchConfiguration('frame_width')},
@@ -126,6 +144,7 @@ def generate_launch_description():
             executable='robot_vision_processor',
             name='robot_vision_processor_node',
             output='screen',
+            condition=IfCondition(LaunchConfiguration('control')),
             parameters=[
                 {'input_topic': LaunchConfiguration('vision_input_topic')},
                 {'model_path': LaunchConfiguration('vision_model_path')},
