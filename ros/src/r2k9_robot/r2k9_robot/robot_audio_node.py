@@ -8,11 +8,13 @@ import time
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+from r2k9_robot.startup_identity import log_startup_identity
 
 
 class RobotAudioNode(Node):
     def __init__(self):
         super().__init__('robot_audio_node')
+        log_startup_identity(self)
 
         self.declare_parameter('audio_device', 'default')
         self.declare_parameter('sample_rate', 16000)

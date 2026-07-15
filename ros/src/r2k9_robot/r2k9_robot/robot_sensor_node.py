@@ -13,11 +13,13 @@ from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
+from r2k9_robot.startup_identity import log_startup_identity
 
 
 class RobotSensorNode(Node):
     def __init__(self):
         super().__init__('robot_sensor_node')
+        log_startup_identity(self)
 
         self.raw_image_pub = self.create_publisher(Image, '/camera/raw', 10)
         self.audio_pub = self.create_publisher(String, '/audio/web', 10)

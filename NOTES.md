@@ -156,3 +156,11 @@ touch src/aws_robomaker_bookstore_world/COLCON_IGNORE
 touch src/aws-robomaker-racetrack-world/COLCON_IGNORE
 colcon build --symlink-install --packages-select ecl_streams --cmake-args -DCMAKE_CXX_FLAGS="-Wno-error=overloaded-virtual"
 ```
+
+# Service
+
+```
+sca@r2k9:~/src/r2k9$ sudo systemctl stop r2k9_robot.service
+sca@r2k9:~/src/r2k9$ sudo systemctl disable r2k9_robot.service
+Removed "/etc/systemd/system/multi-user.target.wants/r2k9_robot.service".
+```
