@@ -2,10 +2,12 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
+from r2k9_robot.startup_identity import log_startup_identity
 
 class KobukiControllerNode(Node):
     def __init__(self):
         super().__init__('kobuki_controller_node')
+        log_startup_identity(self)
         
         # 1. Listen for the Twist velocity payloads arriving from the Flutter App
         self.cmd_vel_subscription = self.create_subscription(

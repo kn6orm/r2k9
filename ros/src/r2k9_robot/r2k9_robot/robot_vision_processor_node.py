@@ -9,11 +9,13 @@ from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage, Image
 from std_msgs.msg import String
 from ultralytics import YOLO
+from r2k9_robot.startup_identity import log_startup_identity
 
 
 class RobotVisionProcessorNode(Node):
     def __init__(self):
         super().__init__('robot_vision_processor_node')
+        log_startup_identity(self)
 
         self.image_pub = self.create_publisher(Image, '/camera/processed_image', 10)
         self.bbox_pub = self.create_publisher(String, '/camera/bounding_boxes', 10)

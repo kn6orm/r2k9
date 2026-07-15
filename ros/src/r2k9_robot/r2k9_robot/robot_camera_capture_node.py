@@ -8,11 +8,13 @@ import rclpy
 from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import Image
+from r2k9_robot.startup_identity import log_startup_identity
 
 
 class RobotCameraCaptureNode(Node):
     def __init__(self):
         super().__init__('robot_camera_capture_node')
+        log_startup_identity(self)
 
         self.raw_image_pub = self.create_publisher(Image, '/camera/raw', 10)
 

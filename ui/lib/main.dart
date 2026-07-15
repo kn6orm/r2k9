@@ -77,6 +77,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   Timer? _videoPulseTimer;
   Timer? _audioPulseTimer;
   Timer? _dpadHoldTimer;
+  String? _pressedDpadButton;
   double _linearCommandMagnitude = 0.25;
   double _angularCommandMagnitude = 0.5;
 
@@ -430,12 +431,18 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
   void _stopDpadHold({bool sendStopCommand = true}) {
     _dpadHoldTimer?.cancel();
     _dpadHoldTimer = null;
+    if (_pressedDpadButton != null && mounted) {
+      setState(() {
+        _pressedDpadButton = null;
+      });
+    }
     if (sendStopCommand && _isConnected) {
       _sendStopCommand();
     }
   }
 
   Widget _buildHoldDpadButton({
+    required String buttonId,
     required IconData icon,
     required Color activeColor,
     required double linearX,
@@ -443,21 +450,60 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
     String? tooltip,
   }) {
     final isEnabled = _isConnected;
+    final isPressed = isEnabled && _pressedDpadButton == buttonId;
     final button = Listener(
       behavior: HitTestBehavior.opaque,
       onPointerDown: isEnabled
-          ? (_) => _startDpadHold(linearX, angularZ)
+          ? (_) {
+              setState(() {
+                _pressedDpadButton = buttonId;
+              });
+              _startDpadHold(linearX, angularZ);
+            }
           : null,
       onPointerUp: isEnabled ? (_) => _stopDpadHold() : null,
       onPointerCancel: isEnabled ? (_) => _stopDpadHold() : null,
-      child: SizedBox(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 110),
+        curve: Curves.easeOut,
         width: 80,
         height: 80,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: !isEnabled
+              ? Colors.white10
+              : isPressed
+              ? activeColor.withValues(alpha: 0.28)
+              : Colors.white10,
+          border: Border.all(
+            color: !isEnabled
+                ? Colors.white24
+                : isPressed
+                ? activeColor
+                : Colors.white38,
+            width: isPressed ? 3 : 2,
+          ),
+          boxShadow: isPressed
+              ? [
+                  BoxShadow(
+                    color: activeColor.withValues(alpha: 0.50),
+                    blurRadius: 18,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
         child: Center(
-          child: Icon(
-            icon,
-            size: 64,
-            color: isEnabled ? activeColor : Colors.white24,
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: 90),
+            scale: isPressed ? 0.90 : 1.0,
+            child: Icon(
+              icon,
+              size: 64,
+              color: isEnabled
+                  ? (isPressed ? activeColor : Colors.white70)
+                  : Colors.white24,
+            ),
           ),
         ),
       ),
@@ -919,6 +965,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
               child: Column(
                 children: [
                   _buildHoldDpadButton(
+                    buttonId: 'up',
                     icon: Icons.arrow_circle_up,
                     activeColor: Colors.blue,
                     linearX: _linearCommandMagnitude,
@@ -928,6 +975,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _buildHoldDpadButton(
+                        buttonId: 'left',
                         icon: Icons.arrow_circle_left,
                         activeColor: Colors.blue,
                         linearX: 0.0,
@@ -942,6 +990,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                       ),
                       const SizedBox(width: 16),
                       _buildHoldDpadButton(
+                        buttonId: 'right',
                         icon: Icons.arrow_circle_right,
                         activeColor: Colors.blue,
                         linearX: 0.0,
@@ -950,6 +999,7 @@ class _TeleopDashboardState extends State<TeleopDashboard> {
                     ],
                   ),
                   _buildHoldDpadButton(
+                    buttonId: 'down',
                     icon: Icons.arrow_circle_down,
                     activeColor: Colors.blue,
                     linearX: -_linearCommandMagnitude,

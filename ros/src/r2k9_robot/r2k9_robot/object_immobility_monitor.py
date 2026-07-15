@@ -4,10 +4,12 @@ from rclpy.node import Node
 import json
 import math
 from std_msgs.msg import String
+from r2k9_robot.startup_identity import log_startup_identity
 
 class ObjectImmobilityMonitor(Node):
     def __init__(self):
         super().__init__('object_immobility_monitor')
+        log_startup_identity(self)
 
         # Subscribing to the lightweight telemetry coordinate stream
         self.bbox_sub = self.create_subscription(
