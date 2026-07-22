@@ -3,8 +3,10 @@ set -e
 
 # Source the ROS 2 setup script natively
 source "/opt/ros/jazzy/setup.bash"
+
 cd /workspace/r2k9/ros
-source install setup.bash
+
+source install/setup.bash
 
 # Execute the command passed to the docker container
 #exec "$@"

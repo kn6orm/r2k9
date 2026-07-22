@@ -22,4 +22,5 @@ source ../tools/install.bash
 cd tools
 docker build -t r2k9-local:latest .
 docker run -it --name r2k9 --net=host --device=/dev/video1:/dev/video0 --device=/dev/snd:/dev/snd -v .:/workspace r2k9-local:latest
+docker run -it --name r2k9 --net=host r2k9-local:latest
 ```
