@@ -10,10 +10,12 @@ from cv_bridge import CvBridge
 from sensor_msgs.msg import Image, CompressedImage
 from std_msgs.msg import String
 from ultralytics import YOLO
+from r2k9_robot.startup_identity import log_startup_identity
 
 class RobotVisionNode(Node):
     def __init__(self):
         super().__init__('robot_vision_node')
+        log_startup_identity(self)
         
         # 1. IMMEDIATE DEFINITIONS: Create your topic communication channels FIRST
         self.image_pub = self.create_publisher(Image, '/camera/processed_image', 10)

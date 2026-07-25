@@ -1,6 +1,7 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.substitutions import LaunchConfiguration
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch.launch_description_sources import AnyLaunchDescriptionSource
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
@@ -8,6 +9,16 @@ import os
 
 
 def generate_launch_description():
+    drone_mode_arg = DeclareLaunchArgument(
+        'drone',
+        default_value='auto',
+        description="Launch drone-side stack: true, false, or auto (default: auto launches both sides unless control is explicitly true)",
+    )
+    control_mode_arg = DeclareLaunchArgument(
+        'control',
+        default_value='auto',
+        description="Launch control-side stack: true, false, or auto (default: auto launches both sides unless drone is explicitly true)",
+    )
     device_id_arg = DeclareLaunchArgument(
         'device_id', default_value='-1', description='Camera device ID (-1 = auto-scan all)'
     )
@@ -16,6 +27,9 @@ def generate_launch_description():
     )
     frame_height_arg = DeclareLaunchArgument(
         'frame_height', default_value='480', description='Camera frame height'
+    )
+    capture_fps_arg = DeclareLaunchArgument(
+        'camera_capture_fps', default_value='30.0', description='Camera capture FPS'
     )
     reconnect_interval_arg = DeclareLaunchArgument(
         'camera_reconnect_interval_sec',
@@ -26,6 +40,16 @@ def generate_launch_description():
         'camera_read_failures_before_reconnect',
         default_value='3',
         description='Consecutive read failures before reconnect',
+    )
+    vision_input_topic_arg = DeclareLaunchArgument(
+        'vision_input_topic',
+        default_value='/camera/raw',
+        description='Image topic consumed by the vision processor',
+    )
+    vision_model_path_arg = DeclareLaunchArgument(
+        'vision_model_path',
+        default_value='yolov8n.pt',
+        description='Path to YOLO model used by the vision processor',
     )
     audio_device_arg = DeclareLaunchArgument(
         'audio_device',
@@ -46,19 +70,44 @@ def generate_launch_description():
         description='Audio chunk size in bytes',
     )
 
+    drone_enabled = PythonExpression([
+        '"',
+        LaunchConfiguration('drone'),
+        '" == "true" or ("',
+        LaunchConfiguration('drone'),
+        '" == "auto" and "',
+        LaunchConfiguration('control'),
+        '" != "true")',
+    ])
+    control_enabled = PythonExpression([
+        '"',
+        LaunchConfiguration('control'),
+        '" == "true" or ("',
+        LaunchConfiguration('control'),
+        '" == "auto" and "',
+        LaunchConfiguration('drone'),
+        '" != "true")',
+    ])
+
     rosbridge_dir = get_package_share_directory('rosbridge_server')
     rosbridge_launch = IncludeLaunchDescription(
         AnyLaunchDescriptionSource(
             os.path.join(rosbridge_dir, 'launch', 'rosbridge_websocket_launch.xml')
-        )
+        ),
+        condition=IfCondition(control_enabled),
     )
 
     return LaunchDescription([
+        drone_mode_arg,
+        control_mode_arg,
         device_id_arg,
         frame_width_arg,
         frame_height_arg,
+        capture_fps_arg,
         reconnect_interval_arg,
         read_failures_arg,
+        vision_input_topic_arg,
+        vision_model_path_arg,
         audio_device_arg,
         audio_sample_rate_arg,
         audio_channels_arg,
@@ -69,24 +118,14 @@ def generate_launch_description():
             executable='dpad_logger',
             name='dpad_logger_node',
             output='screen',
-        ),
-        Node(
-            package='r2k9_robot',
-            executable='robot_audio',
-            name='robot_audio_node',
-            output='screen',
-            parameters=[
-                {'audio_device': LaunchConfiguration('audio_device')},
-                {'sample_rate': LaunchConfiguration('audio_sample_rate')},
-                {'channels': LaunchConfiguration('audio_channels')},
-                {'chunk_size': LaunchConfiguration('audio_chunk_size')},
-            ],
+            condition=IfCondition(control_enabled),
         ),
         Node(
             package='r2k9_robot',
             executable='immobility_monitor',
             name='object_immobility_monitor',
             output='screen',
+            condition=IfCondition(control_enabled),
             arguments=[
                 '--ros-args',
                 '--params-file',
@@ -98,18 +137,36 @@ def generate_launch_description():
             executable='kobuki_controller',
             name='kobuki_controller_node',
             output='screen',
+            condition=IfCondition(drone_enabled),
         ),
         Node(
             package='r2k9_robot',
-            executable='robot_vision',
-            name='robot_vision_node',
+            executable='robot_sensor',
+            name='robot_sensor_node',
             output='screen',
+            condition=IfCondition(drone_enabled),
             parameters=[
                 {'device_id': LaunchConfiguration('device_id')},
                 {'frame_width': LaunchConfiguration('frame_width')},
                 {'frame_height': LaunchConfiguration('frame_height')},
+                {'capture_fps': LaunchConfiguration('camera_capture_fps')},
                 {'reconnect_interval_sec': LaunchConfiguration('camera_reconnect_interval_sec')},
                 {'read_failures_before_reconnect': LaunchConfiguration('camera_read_failures_before_reconnect')},
+                {'audio_device': LaunchConfiguration('audio_device')},
+                {'sample_rate': LaunchConfiguration('audio_sample_rate')},
+                {'channels': LaunchConfiguration('audio_channels')},
+                {'chunk_size': LaunchConfiguration('audio_chunk_size')},
+            ],
+        ),
+        Node(
+            package='r2k9_robot',
+            executable='robot_vision_processor',
+            name='robot_vision_processor_node',
+            output='screen',
+            condition=IfCondition(control_enabled),
+            parameters=[
+                {'input_topic': LaunchConfiguration('vision_input_topic')},
+                {'model_path': LaunchConfiguration('vision_model_path')},
             ],
         ),
     ])

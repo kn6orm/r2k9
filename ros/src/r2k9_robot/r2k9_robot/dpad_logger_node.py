@@ -2,10 +2,12 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
+from r2k9_robot.startup_identity import log_startup_identity
 
 class DpadLoggerNode(Node):
     def __init__(self):
         super().__init__('dpad_logger_node')
+        log_startup_identity(self)
         
         # Subscribe to the standard velocity commands topic
         # Rosbridge automatically translates Flutter WebSocket JSON strings into this topic format
