@@ -8,7 +8,7 @@
 PRODUCT_NAME = r2k9ui
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.r2k9ui
+PRODUCT_BUNDLE_IDENTIFIER = com.r2k9.r2k9ui
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 com.r2k9. All rights reserved.
